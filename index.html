@@ -6,7 +6,7 @@
     <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
     <script>
         // ★ 본인의 자바스크립트 키를 입력하세요 (카톡 전송 필수)
-        Kakao.init('c06b5c67f083ea420633d3efc948062b'); 
+        Kakao.init('YOUR_JAVASCRIPT_KEY_HERE'); 
     </script>
     <style>
         /* 창 크기는 그대로 두고, 내부 글자 및 요소 크기 확대 */
@@ -124,18 +124,18 @@
         let deleteTargetType = null;
         let deleteTargetId = null;
 
+        // 🚀 핵심 변경: 팝업창이나 단독 앱 창으로 열렸을 때 무조건 통과시키는 확실한 로직
         window.onload = function() {
             renderLists();
             setInterval(checkAlarmTicker, 1000);
 
-            // [수정] 바탕화면 앱 아이콘이나 미니 팝업창으로 열렸을 때는 
-            // 큰 모창 변환 버튼을 생략하고, 곧바로 메모장 화면을 띄우는 로직입니다.
+            // 주소창이 없는 앱 모드이거나 창 크기가 모니터 화면 크기보다 명백히 작다면 미니 창으로 인정합니다.
             const isAppWindow = window.name === 'miniMemoWindow' || 
-                                window.location.search.includes('mini') || 
-                                (window.innerHeight < 500 && window.innerWidth < 500);
+                                window.matchMedia('(display-mode: standalone)').matches ||
+                                (window.outerWidth > 0 && window.outerWidth < 500);
 
             if(!isAppWindow) {
-                // 창 크기가 크고 일반 브라우저 탭으로 열렸을 때만 '미니 창 열기' 버튼을 보여줍니다.
+                // 완전히 커다란 일반 웹 브라우저 탭으로 열렸을 때만 중간 다리 버튼을 띄워줍니다.
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-main';
                 btn.innerText = '🚀 업무용 콤팩트 미니 창 열기';
@@ -148,11 +148,11 @@
                 return;
             }
 
-            // 미니 앱 창 모드일 때만 자동 잠금 타이머 작동
             resetLockTimer();
             window.onmousemove = resetLockTimer;
             window.onkeypress = resetLockTimer;
         };
+
         function resetLockTimer() {
             clearTimeout(lockTimer);
             lockTimer = setTimeout(triggerLock, LOCK_TIMEOUT);
