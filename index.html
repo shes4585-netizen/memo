@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>업무용 보안 미니 메모장</title>
+    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+    <script>
+        // ★ 본인의 자바스크립트 키를 입력하세요 (카톡 전송 필수)
+        Kakao.init('c06b5c67f083ea420633d3efc948062b'); 
+    </script>
+    <style>
+        /* 미니 창 내부 스크롤 및 컴팩트 레이아웃 */
+        body { font-family: sans-serif; line-height: 1.3; margin: 0; padding: 8px; color: #333; background: #fdfdfd; font-size: 13px; }
+        h3 { margin: 4px 0; font-size: 13px; display: inline-block; }
+        
+        .btn { padding: 3px 6px; cursor: pointer; border-radius: 3px; border: 1px solid #ccc; background: #fff; font-size: 11px; }
+        .btn-main { background: #fee500; border: none; font-weight: bold; width: 100%; height: 28px; margin-bottom: 6px; }
+        .btn-sm { padding: 1px 4px; font-size: 10px; height: 18px; }
+        .btn-action { padding: 1px 3px; font-size: 10px; margin-left: 2px; cursor: pointer; border: none; background: transparent; }
+
+        .search-box { width: 94%; padding: 5px; margin-bottom: 6px; border: 2px solid #fee500; border-radius: 4px; font-size: 12px; }
+        .section { border: 1px solid #ddd; padding: 6px; margin-bottom: 6px; border-radius: 4px; background: #fafafa; }
+        .list-container { max-height: 75px; overflow-y: auto; } 
+        
+        ul { padding-left: 5px; margin: 2px 0; list-style: none; }
+        li { margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #eee; padding-bottom: 2px; }
+        .item-text { width: 68%; word-break: break-all; font-size: 12px; }
+        .item-btns { width: 32%; text-align: right; display: flex; justify-content: flex-end; align-items: center; }
+
+        /* 메인 화면 내부에 뜨는 초미니 입력 영역 */
+        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:1000; }
+        .modal-content { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 10px; width: 85%; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+        .modal-content textarea { width: 94%; padding: 4px; margin: 6px 0; height: 45px; resize: none; font-size: 12px; }
+
+        /* 하단 실시간 알림 티커 및 점멸 스타일 */
+        .ticker-container { position: fixed; bottom: 35px; left: 50%; transform: translateX(-50%); width: 95%; z-index: 999; }
+        .ticker-item { background: #fff1f1; border: 1px solid #ffb3b3; color: #d9534f; padding: 5px; margin-top: 3px; border-radius: 4px; text-align: center; font-weight: bold; font-size: 11px; cursor: pointer; animation: text-blink 0.8s infinite alternate; }
+        @keyframes text-blink { from { opacity: 1; } to { opacity: 0.3; } }
+
+        /* 🔒 자동 잠금 화면 스타일 */
+        #lockScreen { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:#222; color:#fff; z-index: 2000; text-align:center; padding-top: 80px; }
+        #lockScreen input { padding: 6px; width: 140px; text-align: center; font-size: 16px; border-radius: 4px; border: none; margin-bottom: 10px; color: #000; }
+        
+        /* [신규] 인라인 경고 텍스트 스타일 */
+        .lock-err-msg { color: #ff6b6b; font-size: 11px; font-weight: bold; height: 16px; margin-top: 5px; visibility: hidden; }
+
+        /* 💾 하단 백업 관리 바 */
+        .backup-bar { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 5px; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+    <div id="lockScreen">
+        <h2>🔒 보안 잠금 상태</h2>
+        <p style="font-size:11px; color:#aaa;">자리를 비워 대기모드로 전환되었습니다.</p>
+        <input type="password" id="passwordInput" placeholder="번호 4자리 입력" maxlength="4" oninput="checkPasswordAuto()"><br>
+        <div id="lockError" class="lock-err-msg">⚠️ 비밀번호가 일치하지 않습니다.</div>
+    </div>
+
+    <input type="text" id="searchKeyword" class="search-box" onkeyup="filterItems()" placeholder="🔍 검색어를 입력하세요...">
+    <button class="btn btn-main" onclick="openInputModal()">＋ 새 메모 / 할 일 작성</button>
+
+    <div class="section">
+        <h3>⏱️ 할 일</h3>
+        <div class="list-container"><ul id="todoList"></ul></div>
+    </div>
+
+    <div class="section">
+        <h3>📝 일반 메모</h3>
+        <div class="list-container"><ul id="memoList"></ul></div>
+    </div>
+
+    <div class="backup-bar">
+        <button class="btn" onclick="backupData()" style="width:48%;">💾 파일 백업 받기</button>
+        <button class="btn" onclick="document.getElementById('fileChooser').click()" style="width:48%;">📂 복원 파일 선택</button>
+        <input type="file" id="fileChooser" style="display:none;" onchange="restoreData(this)">
+    </div>
+
+    <div class="ticker-container" id="tickerContainer"></div>
+
+    <div class="modal-overlay" id="inputModal">
+        <div class="modal-content">
+            <div style="font-size: 11px; margin-bottom: 4px;">
+                <label><input type="radio" name="dataType" value="memo" checked onclick="toggleTimeInput(false)"> 메모</label>
+                <label style="margin-left: 10px;"><input type="radio" name="dataType" value="todo" onclick="toggleTimeInput(true)"> 할 일</label>
+            </div>
+            <textarea id="inputText" placeholder="내용 입력..."></textarea>
+            
+            <div id="timeInputGroup" style="display: none; margin-bottom: 6px;">
+                <label style="font-size:0.9em; display:block; margin-bottom:4px;">⏰ 알람 시각 지정 (10자리 숫자 입력):</label>
+                <input type="text" id="smartTimeInput" maxlength="10" placeholder="예: 2605121810" style="width: 94%; padding: 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+
+            <div style="text-align: right;">
+                <button class="btn btn-sm" onclick="closeInputModal()" style="margin-right:3px;">취소</button>
+                <button class="btn btn-sm" style="background:#fee500; border:none;" onclick="saveData()">등록</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let lockTimer;
+        const LOCK_TIMEOUT = 60 * 1000; // 1분 무활동 시 잠금
+        const MY_PASSWORD = "1234"; 
+        let editId = null; 
+
+        window.onload = function() {
+            renderLists();
+            setInterval(checkAlarmTicker, 1000);
+
+            if(window.name !== 'miniMemoWindow') {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-main';
+                btn.innerText = '🚀 업무용 콤팩트 미니 창 열기';
+                btn.style.margin = '20px auto';
+                btn.onclick = function() {
+                    window.open(window.location.href, 'miniMemoWindow', 'width=360,height=390,top=100,left=100,scrollbars=no,resizable=yes');
+                };
+                document.body.innerHTML = '';
+                document.body.appendChild(btn);
+                return;
+            }
+
+            resetLockTimer();
+            window.onmousemove = resetLockTimer;
+            window.onkeypress = resetLockTimer;
+        };
+
+        function resetLockTimer() {
+            clearTimeout(lockTimer);
+            lockTimer = setTimeout(triggerLock, LOCK_TIMEOUT);
+        }
+        function triggerLock() {
+            document.getElementById('lockScreen').style.display = 'block';
+            document.getElementById('lockError').style.visibility = 'hidden'; // 켤 때 에러메시지 숨김
+            document.getElementById('passwordInput').focus();
+        }
+
+        // 🔒 [개선] 얼어붙지 않는 논블로킹(Non-blocking) 자동 해제 엔진
+        function checkPasswordAuto() {
+            const inputField = document.getElementById('passwordInput');
+            const errLabel = document.getElementById('lockError');
+            
+            if (inputField.value.length === 4) {
+                if (inputField.value === MY_PASSWORD) {
+                    // 일치 시 잠금 해제
+                    document.getElementById('lockScreen').style.display = 'none';
+                    errLabel.style.visibility = 'hidden';
+                    inputField.value = '';
+                    resetLockTimer();
+                } else {
+                    // 불일치 시 alert 팝업 대신 인라인 컴팩트 메시지 노출
+                    errLabel.style.visibility = 'visible';
+                    inputField.value = ''; // 적었던 번호 즉시 삭제
+                    inputField.focus();    // 즉시 재입력 가능하도록 포커스 고정
+
+                    // 1.5초 뒤에 경고 메시지만 부드럽게 퇴장
+                    setTimeout(() => {
+                        errLabel.style.visibility = 'hidden';
+                    }, 1500);
+                }
+            }
+        }
+
+        function backupData() {
+            const memos = localStorage.getItem('memos') || '[]';
+            const todos = localStorage.getItem('todos') || '[]';
+            const backupPackage = { memos: JSON.parse(memos), todos: JSON.parse(todos) };
+            const blob = new Blob([JSON.stringify(backupPackage, null, 2)], { type: 'text/plain;charset=utf-8' });
+            
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            
+            const fileName = `술푸자나_${yy}${mm}${dd}${hh}${min}.txt`;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            a.click();
+        }
+
+        function restoreData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if(data.memos && data.todos) {
+                        localStorage.setItem('memos', JSON.stringify(data.memos));
+                        localStorage.setItem('todos', JSON.stringify(data.todos));
+                        alert('데이터 복원이 완료되었습니다!');
+                        renderLists();
+                    } else { alert('올바른 파일 형식이 아닙니다.'); }
+                } catch(err) { alert('파일 읽기 오류가 발생했습니다.'); }
+            };
+            reader.readAsText(file, 'utf-8');
+            input.value = '';
+        }
+
+        function openInputModal() { editId = null; document.getElementById('inputModal').style.display = 'block'; document.getElementById('inputText').focus(); }
+        function closeInputModal() { document.getElementById('inputModal').style.display = 'none'; document.getElementById('inputText').value = ''; document.getElementById('smartTimeInput').value = ''; editId = null; }
+        function toggleTimeInput(show) { document.getElementById('timeInputGroup').style.display = show ? 'block' : 'none'; }
+
+        function startEdit(type, id) {
+            const list = JSON.parse(localStorage.getItem(type) || '[]');
+            const item = list.find(i => i.id === id);
+            if(!item) return;
+
+            editId = id; 
+            document.getElementById('inputModal').style.display = 'block';
+            document.getElementById('inputText').value = item.text;
+
+            if(type === 'memos') {
+                document.querySelector('input[name="dataType"][value="memo"]').checked = true;
+                toggleTimeInput(false);
+            } else {
+                document.querySelector('input[name="dataType"][value="todo"]').checked = true;
+                toggleTimeInput(true);
+                const currentYear = new Date().getFullYear().toString().slice(-2);
+                const rawFormat = item.time.replace('-', '').replace(' ', '').replace(':', '');
+                document.getElementById('smartTimeInput').value = currentYear + rawFormat;
+            }
+            document.getElementById('inputText').focus();
+        }
+
+        function deleteItem(type, id) {
+            if(!confirm('선택한 항목을 삭제하시겠습니까?')) return;
+            const list = JSON.parse(localStorage.getItem(type) || '[]');
+            const filtered = list.filter(i => i.id !== id);
+            localStorage.setItem(type, JSON.stringify(filtered));
+            renderLists();
+        }
+
+        function saveData() {
+            const type = document.querySelector('input[name="dataType"]:checked').value;
+            const text = document.getElementById('inputText').value.trim();
+            if(!text) return alert('내용을 입력해 주세요.');
+
+            const now = new Date();
+            const timeStamp = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+            if(type === 'memo') {
+                let memos = JSON.parse(localStorage.getItem('memos') || '[]');
+                if(editId) {
+                    memos = memos.map(m => m.id === editId ? { ...m, text: text } : m);
+                } else {
+                    memos.push({ id: Date.now(), text: text, date: timeStamp });
+                }
+                localStorage.setItem('memos', JSON.stringify(memos));
+            } else {
+                const rawTime = document.getElementById('smartTimeInput').value.trim();
+                
+                if(rawTime.length !== 10 || isNaN(rawTime)) {
+                    return alert('알람 시간을 숫자로 정확히 10자리 입력해 주세요.\n(예: 2605121810)');
+                }
+
+                const mm = rawTime.slice(2, 4);
+                const dd = rawTime.slice(4, 6);
+                const hh = rawTime.slice(6, 8);
+                const min = rawTime.slice(8, 10);
+
+                if(Number(mm) < 1 || Number(mm) > 12 || Number(dd) < 1 || Number(dd) > 31 || Number(hh) > 23 || Number(min) > 59) {
+                    return alert('유효하지 않은 날짜 또는 시각 범위입니다. 다시 확인해 주세요.');
+                }
+
+                const formattedTarget = `${mm}-${dd} ${hh}:${min}`;
+                let todos = JSON.parse(localStorage.getItem('todos') || '[]');
+
+                if(editId) {
+                    todos = todos.map(t => t.id === editId ? { ...t, text: text, time: formattedTarget, notified: false } : t);
+                } else {
+                    todos.push({ id: Date.now(), text: text, time: formattedTarget, notified: false });
+                }
+                localStorage.setItem('todos', JSON.stringify(todos));
+            }
+            closeInputModal();
+            renderLists();
+            document.getElementById('searchKeyword').value = '';
+        }
+
+        function renderLists() {
+            const memos = JSON.parse(localStorage.getItem('memos') || '[]');
+            document.getElementById('memoList').innerHTML = memos.map(m => `
+                <li data-search="${m.text}">
+                    <span class="item-text">[${m.date}] ${m.text}</span>
+                    <div class="item-btns">
+                        <button class="btn-action" onclick="startEdit('memos', ${m.id})" title="수정">✍️</button>
+                        <button class="btn-action" onclick="deleteItem('memos', ${m.id})" title="삭제">❌</button>
+                        <button class="btn btn-sm" style="margin-left:4px;" onclick="sendKakao('${encodeURIComponent(m.text)}')">카톡</button>
+                    </div>
+                </li>
+            `).join('');
+
+            const todos = JSON.parse(localStorage.getItem('todos') || '[]');
+            document.getElementById('todoList').innerHTML = todos.map(t => `
+                <li data-search="${t.text}">
+                    <span class="item-text">[${t.time}] ${t.text}</span>
+                    <div class="item-btns">
+                        <button class="btn-action" onclick="startEdit('todos', ${t.id})" title="수정">✍️</button>
+                        <button class="btn-action" onclick="deleteItem('todos', ${t.id})" title="삭제">❌</button>
+                        <button class="btn btn-sm" style="margin-left:4px;" onclick="sendKakao('${encodeURIComponent(t.text)}')">카톡</button>
+                    </div>
+                </li>
+            `).join('');
+        }
+
+        function filterItems() {
+            const keyword = document.getElementById('searchKeyword').value.toLowerCase();
+            document.querySelectorAll('ul li').forEach(item => {
+                const text = item.getAttribute('data-search').toLowerCase();
+                item.style.display = text.includes(keyword) ? 'flex' : 'none';
+            });
+        }
+
+        function checkAlarmTicker() {
+            const todos = JSON.parse(localStorage.getItem('todos') || '[]');
+            const now = new Date();
+            
+            const futureTime = new Date(now.getTime() + 15 * 60 * 1000);
+            const futureStr = `${String(futureTime.getMonth()+1).padStart(2,'0')}-${String(futureTime.getDate()).padStart(2,'0')} ${String(futureTime.getHours()).padStart(2,'0')}:${String(futureTime.getMinutes()).padStart(2,'0')}`;
+            
+            const tickerContainer = document.getElementById('tickerContainer');
+
+            todos.forEach(todo => {
+                if(todo.time <= futureStr && !todo.notified) {
+                    todo.notified = true; 
+                    localStorage.setItem('todos', JSON.stringify(todos));
+
+                    const tickerItem = document.createElement('div');
+                    tickerItem.className = 'ticker-item';
+                    tickerItem.innerHTML = `🚨 [15분전 알림] ${todo.text} (클릭시 삭제)`;
+                    tickerItem.onclick = function() { tickerItem.remove(); };
+                    tickerContainer.appendChild(tickerItem);
+                }
+            });
+        }
+
+        function sendKakao(encodedText) {
+            Kakao.Share.sendDefault({
+                objectType: 'text',
+                text: decodeURIComponent(encodedText),
+                link: { mobileWebUrl: 'http://localhost:5500', webUrl: 'http://localhost:5500' },
+                buttonTitle: '확인'
+            });
+        }
+    </script>
+</body>
+</html>
