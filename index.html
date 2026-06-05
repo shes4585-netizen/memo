@@ -44,11 +44,9 @@
         #lockScreen input { padding: 6px; width: 140px; text-align: center; font-size: 18px; border-radius: 4px; border: none; margin-bottom: 10px; color: #000; font-weight: bold; }
         .lock-err-msg { color: #ff6b6b; font-size: 13px; font-weight: bold; height: 16px; margin-top: 5px; visibility: hidden; }
 
-        .backup-bar { display: flex; justify-content: space-between; margin-top: 5px; padding-top: 4px; border-top: 1px solid #eee; }
-        .backup-bar .btn { font-size: 12px; padding: 3px; }
-
-        .del-pop-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 2px solid #d9534f; padding: 10px; width: 65%; border-radius: 4px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-        .del-pop-title { font-size: 13px; font-weight: bold; color: #333; margin-bottom: 8px; }
+        /* 💾 하단 컨트롤 바 (3분할 배치) */
+        .backup-bar { display: flex; justify-content: space-between; margin-top: 5px; padding-top: 4px; border-top: 1px solid #eee; gap: 3px; }
+        .backup-bar .btn { font-size: 11px; padding: 4px 2px; text-align: center; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -74,8 +72,9 @@
     </div>
 
     <div class="backup-bar">
-        <button class="btn" onclick="backupData()" style="width:48%;">💾 파일 백업 받기</button>
-        <button class="btn" onclick="document.getElementById('fileChooser').click()" style="width:48%;">📂 복원 파일 선택</button>
+        <button class="btn" onclick="backupData()" style="width:32%;">💾 파일 백업</button>
+        <button class="btn" onclick="document.getElementById('fileChooser').click()" style="width:32%;">📂 파일 복원</button>
+        <button class="btn" onclick="location.href='https://mybox.naver.com/'" style="width:34%; background:#03c75a; color:#fff; border:none; font-weight:bold;">📂 네이버 박스</button>
         <input type="file" id="fileChooser" style="display:none;" onchange="restoreData(this)">
     </div>
 
@@ -344,7 +343,6 @@
             document.getElementById('searchKeyword').value = '';
         }
 
-        // [수정 핵심] 리스트 출력 시 알맹이 글자만 순수하게 필터링용 속성으로 따로 분리하여 박아둡니다.
         function renderLists() {
             const memos = JSON.parse(localStorage.getItem('memos') || '[]');
             document.getElementById('memoList').innerHTML = memos.map(m => `
