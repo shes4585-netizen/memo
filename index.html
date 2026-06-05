@@ -9,7 +9,6 @@
         Kakao.init('c06b5c67f083ea420633d3efc948062b'); 
     </script>
     <style>
-        /* 창 크기는 그대로 두고, 내부 글자 및 요소 크기 확대 */
         body { font-family: sans-serif; line-height: 1.4; margin: 0; padding: 6px; color: #333; background: #fdfdfd; font-size: 15px; }
         h3 { margin: 2px 0; font-size: 15px; display: inline-block; font-weight: bold; }
         
@@ -27,32 +26,27 @@
         .item-text { width: 65%; word-break: break-all; font-size: 14px; font-weight: 500; }
         .item-btns { width: 35%; text-align: right; display: flex; justify-content: flex-end; align-items: center; }
 
-        /* 입력 팝업창 내부 글자 크기 확대 */
         .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:1000; }
         .modal-content { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 10px; width: 85%; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
         .modal-content label { font-size: 14px; font-weight: bold; }
         .modal-content textarea { width: 94%; padding: 5px; margin: 5px 0; height: 50px; resize: none; font-size: 14px; }
 
-        /* 10자리 알람 시각 입력창 */
         #timeInputGroup { display: none; margin-bottom: 6px; }
         #smartTimeInput { width: 94%; padding: 5px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; }
 
-        /* 하단 실시간 알림 티커 */
         .ticker-container { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); width: 95%; z-index: 999; }
         .ticker-item { background: #fff1f1; border: 1px solid #ffb3b3; color: #d9534f; padding: 5px; margin-top: 3px; border-radius: 4px; text-align: center; font-weight: bold; font-size: 12px; cursor: pointer; animation: text-blink 0.8s infinite alternate; }
         @keyframes text-blink { from { opacity: 1; } to { opacity: 0.3; } }
 
-        /* 🔒 자동 잠금 화면 */
+        /* 🔒 자동 잠금 및 비번 설정 화면 */
         #lockScreen { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:#222; color:#fff; z-index: 2000; text-align:center; padding-top: 80px; }
         #lockScreen h2 { font-size: 18px; margin-bottom: 5px; }
         #lockScreen input { padding: 6px; width: 140px; text-align: center; font-size: 18px; border-radius: 4px; border: none; margin-bottom: 10px; color: #000; font-weight: bold; }
         .lock-err-msg { color: #ff6b6b; font-size: 13px; font-weight: bold; height: 16px; margin-top: 5px; visibility: hidden; }
 
-        /* 💾 하단 백업 관리 바 */
         .backup-bar { display: flex; justify-content: space-between; margin-top: 5px; padding-top: 4px; border-top: 1px solid #eee; }
         .backup-bar .btn { font-size: 12px; padding: 3px; }
 
-        /* 🗑️ 초미니 컴팩트 삭제 확인 팝업 레이어 */
         .del-pop-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 2px solid #d9534f; padding: 10px; width: 65%; border-radius: 4px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
         .del-pop-title { font-size: 13px; font-weight: bold; color: #333; margin-bottom: 8px; }
     </style>
@@ -60,9 +54,9 @@
 <body>
 
     <div id="lockScreen">
-        <h2>🔒 보안 잠금 상태</h2>
-        <p style="font-size:12px; color:#aaa; margin-top:0;">자리를 비워 대기모드로 전환되었습니다.</p>
-        <input type="password" id="passwordInput" placeholder="비번 4자리" maxlength="4" oninput="checkPasswordAuto()"><br>
+        <h2 id="lockTitle">🔒 보안 잠금 상태</h2>
+        <p id="lockDesc" style="font-size:12px; color:#aaa; margin-top:0;">자리를 비워 대기모드로 전환되었습니다.</p>
+        <input type="password" id="passwordInput" placeholder="비번 4자리" maxlength="4" oninput="handlePasswordInput()"><br>
         <div id="lockError" class="lock-err-msg">⚠️ 비밀번호 불일치</div>
     </div>
 
@@ -118,24 +112,27 @@
     <script>
         let lockTimer;
         const LOCK_TIMEOUT = 60 * 1000; 
-        const MY_PASSWORD = "1234"; 
         let editId = null; 
-        
         let deleteTargetType = null;
         let deleteTargetId = null;
 
-        // 🚀 핵심 변경: 팝업창이나 단독 앱 창으로 열렸을 때 무조건 통과시키는 확실한 로직
+        // SHA-256 해시 변환 함수
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
         window.onload = function() {
             renderLists();
             setInterval(checkAlarmTicker, 1000);
 
-            // 주소창이 없는 앱 모드이거나 창 크기가 모니터 화면 크기보다 명백히 작다면 미니 창으로 인정합니다.
             const isAppWindow = window.name === 'miniMemoWindow' || 
                                 window.matchMedia('(display-mode: standalone)').matches ||
                                 (window.outerWidth > 0 && window.outerWidth < 500);
 
             if(!isAppWindow) {
-                // 완전히 커다란 일반 웹 브라우저 탭으로 열렸을 때만 중간 다리 버튼을 띄워줍니다.
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-main';
                 btn.innerText = '🚀 업무용 콤팩트 미니 창 열기';
@@ -148,36 +145,72 @@
                 return;
             }
 
-            resetLockTimer();
+            // 첫 접속 시 해시 처리된 비밀번호가 없으면 생성 유도, 있으면 바로 잠금 화면 작동
+            if (!localStorage.getItem('hashed_pwd')) {
+                showInitialPasswordSetup();
+            } else {
+                triggerLock();
+            }
+
             window.onmousemove = resetLockTimer;
             window.onkeypress = resetLockTimer;
         };
 
-        function resetLockTimer() {
-            clearTimeout(lockTimer);
-            lockTimer = setTimeout(triggerLock, LOCK_TIMEOUT);
-        }
-        function triggerLock() {
+        function showInitialPasswordSetup() {
             document.getElementById('lockScreen').style.display = 'block';
+            document.getElementById('lockTitle').innerText = '🆕 초기 보안 비밀번호 설정';
+            document.getElementById('lockDesc').innerText = '이 컴퓨터에서 사용할 4자리 비밀번호를 정해주세요.';
+            document.getElementById('passwordInput').placeholder = '새 비번 4자리';
+            document.getElementById('passwordInput').focus();
+        }
+
+        function triggerLock() {
+            if (!localStorage.getItem('hashed_pwd')) return; 
+            document.getElementById('lockScreen').style.display = 'block';
+            document.getElementById('lockTitle').innerText = '🔒 보안 잠금 상태';
+            document.getElementById('lockDesc').innerText = '자리를 비워 대기모드로 전환되었습니다.';
+            document.getElementById('passwordInput').placeholder = '비번 4자리';
             document.getElementById('lockError').style.visibility = 'hidden'; 
             document.getElementById('passwordInput').focus();
         }
 
-        function checkPasswordAuto() {
+        function resetLockTimer() {
+            if (document.getElementById('lockScreen').style.display === 'block') return;
+            clearTimeout(lockTimer);
+            lockTimer = setTimeout(triggerLock, LOCK_TIMEOUT);
+        }
+
+        // 비밀번호 입력 처리 (설정 또는 검증)
+        async function handlePasswordInput() {
             const inputField = document.getElementById('passwordInput');
             const errLabel = document.getElementById('lockError');
             
             if (inputField.value.length === 4) {
-                if (inputField.value === MY_PASSWORD) {
+                const inputPwd = inputField.value;
+                const storedHash = localStorage.getItem('hashed_pwd');
+
+                if (!storedHash) {
+                    // [초기 설정] 입력받은 4자리를 해시로 으깨어 브라우저에 저장
+                    const hash = await sha256(inputPwd);
+                    localStorage.setItem('hashed_pwd', hash);
+                    alert('비밀번호 설정이 완료되었습니다!');
                     document.getElementById('lockScreen').style.display = 'none';
-                    errLabel.style.visibility = 'hidden';
                     inputField.value = '';
                     resetLockTimer();
                 } else {
-                    errLabel.style.visibility = 'visible';
-                    inputField.value = ''; 
-                    inputField.focus();    
-                    setTimeout(() => { errLabel.style.visibility = 'hidden'; }, 1500);
+                    // [잠금 해제 검증] 입력값을 해시로 만들어 기존 저장된 해시값과 비교
+                    const inputHash = await sha256(inputPwd);
+                    if (inputHash === storedHash) {
+                        document.getElementById('lockScreen').style.display = 'none';
+                        errLabel.style.visibility = 'hidden';
+                        inputField.value = '';
+                        resetLockTimer();
+                    } else {
+                        errLabel.style.visibility = 'visible';
+                        inputField.value = ''; 
+                        inputField.focus();    
+                        setTimeout(() => { errLabel.style.visibility = 'hidden'; }, 1500);
+                    }
                 }
             }
         }
