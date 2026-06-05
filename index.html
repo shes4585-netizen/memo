@@ -116,7 +116,6 @@
         let deleteTargetType = null;
         let deleteTargetId = null;
 
-        // SHA-256 해시 변환 함수
         async function sha256(message) {
             const msgBuffer = new TextEncoder().encode(message);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -145,7 +144,6 @@
                 return;
             }
 
-            // 첫 접속 시 해시 처리된 비밀번호가 없으면 생성 유도, 있으면 바로 잠금 화면 작동
             if (!localStorage.getItem('hashed_pwd')) {
                 showInitialPasswordSetup();
             } else {
@@ -180,7 +178,6 @@
             lockTimer = setTimeout(triggerLock, LOCK_TIMEOUT);
         }
 
-        // 비밀번호 입력 처리 (설정 또는 검증)
         async function handlePasswordInput() {
             const inputField = document.getElementById('passwordInput');
             const errLabel = document.getElementById('lockError');
@@ -190,7 +187,6 @@
                 const storedHash = localStorage.getItem('hashed_pwd');
 
                 if (!storedHash) {
-                    // [초기 설정] 입력받은 4자리를 해시로 으깨어 브라우저에 저장
                     const hash = await sha256(inputPwd);
                     localStorage.setItem('hashed_pwd', hash);
                     alert('비밀번호 설정이 완료되었습니다!');
@@ -198,7 +194,6 @@
                     inputField.value = '';
                     resetLockTimer();
                 } else {
-                    // [잠금 해제 검증] 입력값을 해시로 만들어 기존 저장된 해시값과 비교
                     const inputHash = await sha256(inputPwd);
                     if (inputHash === storedHash) {
                         document.getElementById('lockScreen').style.display = 'none';
@@ -349,10 +344,11 @@
             document.getElementById('searchKeyword').value = '';
         }
 
+        // [수정 핵심] 리스트 출력 시 알맹이 글자만 순수하게 필터링용 속성으로 따로 분리하여 박아둡니다.
         function renderLists() {
             const memos = JSON.parse(localStorage.getItem('memos') || '[]');
             document.getElementById('memoList').innerHTML = memos.map(m => `
-                <li data-search="${m.text}">
+                <li data-search="${m.text.replace(/"/g, '&quot;')}">
                     <span class="item-text">[${m.date}] ${m.text}</span>
                     <div class="item-btns">
                         <button class="btn-action" onclick="startEdit('memos', ${m.id})" title="수정">✍️</button>
@@ -364,7 +360,7 @@
 
             const todos = JSON.parse(localStorage.getItem('todos') || '[]');
             document.getElementById('todoList').innerHTML = todos.map(t => `
-                <li data-search="${t.text}">
+                <li data-search="${t.text.replace(/"/g, '&quot;')}">
                     <span class="item-text">[${t.time}] ${t.text}</span>
                     <div class="item-btns">
                         <button class="btn-action" onclick="startEdit('todos', ${t.id})" title="수정">✍️</button>
