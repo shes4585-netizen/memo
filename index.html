@@ -128,7 +128,14 @@
             renderLists();
             setInterval(checkAlarmTicker, 1000);
 
-            if(window.name !== 'miniMemoWindow') {
+            // [수정] 바탕화면 앱 아이콘이나 미니 팝업창으로 열렸을 때는 
+            // 큰 모창 변환 버튼을 생략하고, 곧바로 메모장 화면을 띄우는 로직입니다.
+            const isAppWindow = window.name === 'miniMemoWindow' || 
+                                window.location.search.includes('mini') || 
+                                (window.innerHeight < 500 && window.innerWidth < 500);
+
+            if(!isAppWindow) {
+                // 창 크기가 크고 일반 브라우저 탭으로 열렸을 때만 '미니 창 열기' 버튼을 보여줍니다.
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-main';
                 btn.innerText = '🚀 업무용 콤팩트 미니 창 열기';
@@ -141,11 +148,11 @@
                 return;
             }
 
+            // 미니 앱 창 모드일 때만 자동 잠금 타이머 작동
             resetLockTimer();
             window.onmousemove = resetLockTimer;
             window.onkeypress = resetLockTimer;
         };
-
         function resetLockTimer() {
             clearTimeout(lockTimer);
             lockTimer = setTimeout(triggerLock, LOCK_TIMEOUT);
