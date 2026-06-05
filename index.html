@@ -40,12 +40,14 @@
         /* 🔒 자동 잠금 화면 스타일 */
         #lockScreen { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:#222; color:#fff; z-index: 2000; text-align:center; padding-top: 80px; }
         #lockScreen input { padding: 6px; width: 140px; text-align: center; font-size: 16px; border-radius: 4px; border: none; margin-bottom: 10px; color: #000; }
-        
-        /* [신규] 인라인 경고 텍스트 스타일 */
         .lock-err-msg { color: #ff6b6b; font-size: 11px; font-weight: bold; height: 16px; margin-top: 5px; visibility: hidden; }
 
         /* 💾 하단 백업 관리 바 */
         .backup-bar { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 5px; border-top: 1px solid #eee; }
+
+        /* 🗑️ [신규] 초미니 컴팩트 삭제 확인 팝업 레이어 */
+        .del-pop-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 1px solid #d9534f; padding: 8px; width: 65%; border-radius: 4px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .del-pop-title { font-size: 11px; font-weight: bold; color: #333; margin-bottom: 6px; }
     </style>
 </head>
 <body>
@@ -98,11 +100,23 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="deleteModal">
+        <div class="del-pop-content">
+            <div class="del-pop-title">🗑️ 정말 삭제할까요?</div>
+            <button class="btn btn-sm" onclick="closeDeleteModal()" style="margin-right:4px; padding:1px 6px;">취소</button>
+            <button class="btn btn-sm" style="background:#d9534f; color:#fff; border:none; padding:1px 6px;" onclick="executeDelete()">삭제</button>
+        </div>
+    </div>
+
     <script>
         let lockTimer;
-        const LOCK_TIMEOUT = 60 * 1000; // 1분 무활동 시 잠금
+        const LOCK_TIMEOUT = 60 * 1000; 
         const MY_PASSWORD = "1234"; 
         let editId = null; 
+        
+        // 삭제 타겟팅 임시 보존 인터페이스 변수
+        let deleteTargetType = null;
+        let deleteTargetId = null;
 
         window.onload = function() {
             renderLists();
@@ -132,32 +146,25 @@
         }
         function triggerLock() {
             document.getElementById('lockScreen').style.display = 'block';
-            document.getElementById('lockError').style.visibility = 'hidden'; // 켤 때 에러메시지 숨김
+            document.getElementById('lockError').style.visibility = 'hidden'; 
             document.getElementById('passwordInput').focus();
         }
 
-        // 🔒 [개선] 얼어붙지 않는 논블로킹(Non-blocking) 자동 해제 엔진
         function checkPasswordAuto() {
             const inputField = document.getElementById('passwordInput');
             const errLabel = document.getElementById('lockError');
             
             if (inputField.value.length === 4) {
                 if (inputField.value === MY_PASSWORD) {
-                    // 일치 시 잠금 해제
                     document.getElementById('lockScreen').style.display = 'none';
                     errLabel.style.visibility = 'hidden';
                     inputField.value = '';
                     resetLockTimer();
                 } else {
-                    // 불일치 시 alert 팝업 대신 인라인 컴팩트 메시지 노출
                     errLabel.style.visibility = 'visible';
-                    inputField.value = ''; // 적었던 번호 즉시 삭제
-                    inputField.focus();    // 즉시 재입력 가능하도록 포커스 고정
-
-                    // 1.5초 뒤에 경고 메시지만 부드럽게 퇴장
-                    setTimeout(() => {
-                        errLabel.style.visibility = 'hidden';
-                    }, 1500);
+                    inputField.value = ''; 
+                    inputField.focus();    
+                    setTimeout(() => { errLabel.style.visibility = 'hidden'; }, 1500);
                 }
             }
         }
@@ -227,12 +234,28 @@
             document.getElementById('inputText').focus();
         }
 
+        // 🗑️ [개선] 큰 브라우저 팝업을 치우고 초미니 모달창을 띄우는 인터페이스 연동
         function deleteItem(type, id) {
-            if(!confirm('선택한 항목을 삭제하시겠습니까?')) return;
-            const list = JSON.parse(localStorage.getItem(type) || '[]');
-            const filtered = list.filter(i => i.id !== id);
-            localStorage.setItem(type, JSON.stringify(filtered));
-            renderLists();
+            deleteTargetType = type;
+            deleteTargetId = id;
+            document.getElementById('deleteModal').style.display = 'block';
+        }
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+            deleteTargetType = null;
+            deleteTargetId = null;
+        }
+        
+        // 🗑️ [개선] 실제 기기 내부 저장소(LocalStorage) 연동 소멸 실행부
+        function executeDelete() {
+            if(!deleteTargetType || !deleteTargetId) return;
+            
+            const list = JSON.parse(localStorage.getItem(deleteTargetType) || '[]');
+            const filtered = list.filter(i => i.id !== deleteTargetId);
+            localStorage.setItem(deleteTargetType, JSON.stringify(filtered));
+            
+            closeDeleteModal();
+            renderLists(); // 삭제 후 즉시 화면 목록 동기화 리프레시
         }
 
         function saveData() {
@@ -343,7 +366,7 @@
             Kakao.Share.sendDefault({
                 objectType: 'text',
                 text: decodeURIComponent(encodedText),
-                link: { mobileWebUrl: 'http://localhost:5500', webUrl: 'http://localhost:5500' },
+                link: { mobileWebUrl: 'http://127.0.0.1:5500', webUrl: 'http://127.0.0.1:5500' },
                 buttonTitle: '확인'
             });
         }
