@@ -10,25 +10,26 @@
     </script>
     <style>
         html, body { height: 100%; margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; }
-        /* 🎨 배경화면을 깔끔하고 연한 색상으로 변경 */
-        body { font-family: sans-serif; line-height: 1.4; padding: 6px; color: #333; background: #f5f6f8; font-size: 15px; display: flex; flex-direction: column; }
         
-        h3 { margin: 2px 0; font-size: 14px; display: inline-block; font-weight: bold; }
+        /* 🎨 1. 전체 배경색: 확연히 구분되는 연한 잿빛 회색으로 지정 */
+        body { font-family: sans-serif; line-height: 1.4; padding: 8px; color: #333; background: #eef0f4; font-size: 15px; display: flex; flex-direction: column; }
+        
+        h3 { margin: 2px 0; font-size: 14px; display: inline-block; font-weight: bold; color: #444; }
         
         .btn { padding: 4px 8px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: #fff; font-size: 13px; }
-        .btn-main { background: #fee500; border: none; font-weight: bold; width: 100%; height: 32px; margin-bottom: 5px; font-size: 14px; flex-shrink: 0; }
+        .btn-main { background: #fee500; border: none; font-weight: bold; width: 100%; height: 32px; margin-bottom: 6px; font-size: 14px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .btn-sm { padding: 4px 10px; font-size: 13px; height: 26px; }
         .btn-action { padding: 1px 1px; font-size: 14px; margin-left: 1px; cursor: pointer; border: none; background: transparent; }
 
-        .search-box { width: 100%; padding: 6px; margin-bottom: 5px; border: 2px solid #fee500; border-radius: 4px; font-size: 14px; font-weight: bold; box-sizing: border-box; flex-shrink: 0; background: #fff; }
+        .search-box { width: 100%; padding: 6px; margin-bottom: 6px; border: 2px solid #fee500; border-radius: 4px; font-size: 14px; font-weight: bold; box-sizing: border-box; flex-shrink: 0; background: #fff; }
         
-        /* 🎨 보여주는 입력창(목록)을 모두 깨끗한 흰색(background: #fff)으로 변경 */
-        .section { border: 1px solid #ddd; padding: 5px; margin-bottom: 5px; border-radius: 4px; background: #ffffff; display: flex; flex-direction: column; overflow: hidden; }
+        /* 🎨 2. 보여주는 메모 창: 테두리를 진하게 하고 내부를 완전히 깨끗한 순백색으로 채움 */
+        .section { border: 1px solid #bbc1cc; padding: 6px; margin-bottom: 6px; border-radius: 5px; background: #ffffff; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
         
-        /* ⏱️ 할 일 영역: 개수가 적으므로 높이를 작게 고정 (flex 비중 낮춤) */
+        /* ⏱️ 할 일 영역: 높이를 작게 고정 */
         .section.todo-sec { flex: 0 0 75px; }
         
-        /* 📝 일반 메모 영역: 메모 양이 많으므로 남은 화면을 꽉 채우도록 크게 확장 */
+        /* 📝 일반 메모 영역: 남은 화면을 크게 채움 */
         .section.memo-sec { flex: 1; }
         
         .list-container { flex: 1; overflow-y: auto; } 
@@ -41,13 +42,13 @@
         .item-btns .btn-sm { padding: 2px 4px; font-size: 12px; height: 22px; margin-left: 1px; }
 
         /* 작성 팝업 모달 */
-        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:1000; }
-        .modal-content { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 12px; width: 90%; border-radius: 6px; box-shadow: 0 2px 12px rgba(0,0,0,0.2); box-sizing: border-box; }
+        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:1000; }
+        .modal-content { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 12px; width: 90%; border-radius: 6px; box-shadow: 0 3px 15px rgba(0,0,0,0.25); box-sizing: border-box; }
         .modal-content label { font-size: 14px; font-weight: bold; }
-        .modal-content textarea { width: 100%; padding: 8px; margin: 6px 0; height: 110px; resize: none; font-size: 14px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .modal-content textarea { width: 100%; padding: 8px; margin: 6px 0; height: 110px; resize: none; font-size: 14px; box-sizing: border-box; border: 1px solid #bbb; border-radius: 4px; }
 
         #timeInputGroup { display: none; margin-bottom: 6px; }
-        #smartTimeInput { width: 100%; padding: 6px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; box-sizing: border-box; }
+        #smartTimeInput { width: 100%; padding: 6px; font-size: 14px; border: 1px solid #bbb; border-radius: 4px; font-weight: bold; box-sizing: border-box; }
 
         .ticker-container { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); width: 95%; z-index: 999; }
         .ticker-item { background: #fff1f1; border: 1px solid #ffb3b3; color: #d9534f; padding: 5px; margin-top: 3px; border-radius: 4px; text-align: center; font-weight: bold; font-size: 12px; cursor: pointer; animation: text-blink 0.8s infinite alternate; }
@@ -59,7 +60,7 @@
         .lock-err-msg { color: #ff6b6b; font-size: 13px; font-weight: bold; height: 16px; margin-top: 5px; visibility: hidden; }
 
         /* 하단 컨트롤 바 */
-        .backup-bar { display: flex; justify-content: space-between; margin-top: auto; padding-top: 4px; border-top: 1px solid #eee; gap: 4px; flex-shrink: 0; background: #fff; }
+        .backup-bar { display: flex; justify-content: space-between; margin-top: auto; padding-top: 4px; border-top: 1px solid #ccc; gap: 4px; flex-shrink: 0; background: #fff; }
         .backup-bar .btn { font-size: 11px; padding: 5px 0; text-align: center; white-space: nowrap; font-weight: bold; }
         
         .del-pop-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 2px solid #d9534f; padding: 10px; width: 65%; border-radius: 4px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
