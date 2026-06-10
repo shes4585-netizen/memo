@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>My Life Memo</title>
+    <title>My life memo</title>
     <script>
         // ★ 여기에 준비하신 텔레그램 정보를 입력하세요 (정확히 따옴표 안에 기입)
         const TELEGRAM_BOT_TOKEN = '8997134654:AAH1XU7UP0F1vDTaimZr2CnGJQM-EyCGNgw'; 
@@ -38,15 +38,35 @@
         li { margin-bottom: 4px; border-bottom: 1px dashed #eee; padding-bottom: 3px; display: flex; flex-direction: column; }
         .item-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         
-        /* 🔍 제목 클릭 영역 (마우스 올리면 손가락 모양 변형 및 밑줄 효과) */
         .item-text { width: 73%; word-break: break-all; font-size: 13px; font-weight: 500; cursor: pointer; user-select: none; }
         .item-text:hover { text-decoration: underline; color: #0066cc; }
         
-        /* 📖 펼쳐지는 상세 내용 영역 스타일 */
         .item-body { display: none; padding: 6px; margin-top: 4px; background: #f9fbfd; border-left: 3px solid #24A1DE; font-size: 13px; color: #444; white-space: pre-wrap; word-break: break-all; }
         
+        /* ✉️ 버튼 묶음 영역 및 모서리 숫자를 위한 relative 설정 */
         .item-btns { width: 27%; text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 1px; }
-        .item-btns .btn-sm { padding: 2px 4px; font-size: 11px; height: 22px; margin-left: 1px; background: #24A1DE; color: #fff; border: none; font-weight: bold; border-radius: 3px; }
+        
+        .btn-container { position: relative; display: inline-block; margin-left: 2px; }
+        .btn-container .btn-sm { padding: 2px 5px; font-size: 11px; height: 22px; background: #24A1DE; color: #fff; border: none; font-weight: bold; border-radius: 3px; }
+
+        /* 🔴 전송 횟수를 보여줄 모서리 배지 디자인 */
+        .send-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #d9534f;
+            color: white;
+            font-size: 9px;
+            font-weight: bold;
+            border-radius: 50%;
+            padding: 1px 4px;
+            min-width: 8px;
+            text-align: center;
+            line-height: 11px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            display: none; /* 0회일 때는 기본적으로 숨김 */
+            pointer-events: none; /* 숫자 클릭 방지 */
+        }
 
         /* 작성 팝업 모달 */
         .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:1000; }
@@ -395,7 +415,8 @@
                 if(editId) {
                     memos = memos.map(m => m.id === editId ? { ...m, text: text, fileName: attachedFileName, fileData: attachedFileBase64 } : m);
                 } else {
-                    memos.push({ id: Date.now(), text: text, date: timeStamp, fileName: attachedFileName, fileData: attachedFileBase64 });
+                    // 전송 횟수 저장을 위해 sendCount: 0 추가
+                    memos.push({ id: Date.now(), text: text, date: timeStamp, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 });
                 }
                 localStorage.setItem('memos', JSON.stringify(memos));
             } else {
@@ -420,7 +441,8 @@
                 if(editId) {
                     todos = todos.map(t => t.id === editId ? { ...t, text: text, time: formattedTarget, notified: false, fileName: attachedFileName, fileData: attachedFileBase64 } : t);
                 } else {
-                    todos.push({ id: Date.now(), text: text, time: formattedTarget, notified: false, fileName: attachedFileName, fileData: attachedFileBase64 });
+                    // 전송 횟수 저장을 위해 sendCount: 0 추가
+                    todos.push({ id: Date.now(), text: text, time: formattedTarget, notified: false, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 });
                 }
                 localStorage.setItem('todos', JSON.stringify(todos));
             }
@@ -429,7 +451,6 @@
             document.getElementById('searchKeyword').value = '';
         }
 
-        // 🔍 [접기/펼치기 제어] 제목 클릭 시 작동하는 토글 함수
         function toggleDetails(id) {
             const bodyDiv = document.getElementById(`body-${id}`);
             if (bodyDiv.style.display === 'block') {
@@ -443,8 +464,11 @@
             const memos = JSON.parse(localStorage.getItem('memos') || '[]');
             document.getElementById('memoList').innerHTML = memos.map(m => {
                 const fileIcon = m.fileName ? `<span style="font-size:11px; color:#24A1DE; font-weight:bold;" title="${m.fileName}">📁</span> ` : '';
-                // 첫 번째 줄만 제목으로 추출 (엔터 기준 분리)
                 const titleText = m.text.split('\n')[0]; 
+                
+                // 전송 횟수에 따라 배지 보여주기 판단
+                const count = m.sendCount || 0;
+                const badgeStyle = count > 0 ? 'display:block;' : 'display:none;';
                 
                 return `
                 <li data-search="${m.text.replace(/"/g, '&quot;')}">
@@ -453,7 +477,10 @@
                         <div class="item-btns">
                             <button class="btn-action" onclick="startEdit('memos', ${m.id})" title="수정">✍️</button>
                             <button class="btn-action" onclick="deleteItem('memos', ${m.id})" title="삭제">❌</button>
-                            <button class="btn btn-sm" onclick="sendTelegram('memos', ${m.id})">전송</button>
+                            <div class="btn-container">
+                                <button class="btn btn-sm" onclick="sendTelegram('memos', ${m.id})">전송</button>
+                                <span class="send-badge" id="badge-memos-${m.id}" style="${badgeStyle}">${count}</span>
+                            </div>
                         </div>
                     </div>
                     <div class="item-body" id="body-${m.id}">${m.text}${m.fileName ? `\n\n📎 첨부파일: ${m.fileName}` : ''}</div>
@@ -465,6 +492,9 @@
                 const fileIcon = t.fileName ? `<span style="font-size:11px; color:#24A1DE; font-weight:bold;" title="${t.fileName}">📁</span> ` : '';
                 const titleText = t.text.split('\n')[0];
 
+                const count = t.sendCount || 0;
+                const badgeStyle = count > 0 ? 'display:block;' : 'display:none;';
+
                 return `
                 <li data-search="${t.text.replace(/"/g, '&quot;')}">
                     <div class="item-header">
@@ -472,7 +502,10 @@
                         <div class="item-btns">
                             <button class="btn-action" onclick="startEdit('todos', ${t.id})" title="수정">✍️</button>
                             <button class="btn-action" onclick="deleteItem('todos', ${t.id})" title="삭제">❌</button>
-                            <button class="btn btn-sm" onclick="sendTelegram('todos', ${t.id})">전송</button>
+                            <div class="btn-container">
+                                <button class="btn btn-sm" onclick="sendTelegram('todos', ${t.id})">전송</button>
+                                <span class="send-badge" id="badge-todos-${t.id}" style="${badgeStyle}">${count}</span>
+                            </div>
                         </div>
                     </div>
                     <div class="item-body" id="body-${t.id}">${t.text}${t.fileName ? `\n\n📎 첨부파일: ${t.fileName}` : ''}</div>
@@ -511,6 +544,26 @@
             });
         }
 
+        // 📈 전송 성공 시 카운트를 올리고 브라우저에 저장하는 내부 함수
+        function updateSendCount(type, id) {
+            const list = JSON.parse(localStorage.getItem(type) || '[]');
+            const updated = list.map(item => {
+                if (item.id === id) {
+                    const newCount = (item.sendCount || 0) + 1;
+                    
+                    // 화면 배지 숫자 즉시 업데이트
+                    const badge = document.getElementById(`badge-${type}-${id}`);
+                    if (badge) {
+                        badge.innerText = newCount;
+                        badge.style.display = 'block';
+                    }
+                    return { ...item, sendCount: newCount };
+                }
+                return item;
+            });
+            localStorage.setItem(type, JSON.stringify(updated));
+        }
+
         function sendTelegram(type, id) {
             if (TELEGRAM_BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE' || TELEGRAM_CHAT_ID === 'YOUR_CHAT_ID_HERE') {
                 return alert('텔레그램 토큰과 채팅 ID를 코드 상단에 입력해 주세요!');
@@ -529,7 +582,14 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text })
                 })
-                .then(res => { if (res.ok) alert('🚀 메모 전송 완료!'); else alert('⚠️ 전송 실패!'); })
+                .then(res => { 
+                    if (res.ok) {
+                        updateSendCount(type, id); // 🔴 전송 카운트 증가
+                        alert('🚀 메모 전송 완료!'); 
+                    } else { 
+                        alert('⚠️ 전송 실패!'); 
+                    } 
+                })
                 .catch(err => alert('네트워크 오류가 발생했습니다.'));
             } 
             else {
@@ -550,7 +610,14 @@
                 formData.append('caption', text); 
 
                 fetch(url, { method: 'POST', body: formData })
-                .then(res => { if (res.ok) alert('📎 파일 및 메모 전송 완료!'); else alert('⚠️ 파일 전송 실패!'); })
+                .then(res => { 
+                    if (res.ok) {
+                        updateSendCount(type, id); // 🔴 전송 카운트 증가
+                        alert('📎 파일 및 메모 전송 완료!'); 
+                    } else { 
+                        alert('⚠️ 파일 전송 실패!'); 
+                    } 
+                })
                 .catch(err => alert('네트워크 오류가 발생했습니다.'));
             }
         }
