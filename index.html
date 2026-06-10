@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>♥♥인생 메모장♥♥</title>
+    <title>My Life Memo</title>
     <script>
         // ★ 여기에 준비하신 텔레그램 정보를 입력하세요 (정확히 따옴표 안에 기입)
         const TELEGRAM_BOT_TOKEN = '8997134654:AAH1XU7UP0F1vDTaimZr2CnGJQM-EyCGNgw'; 
@@ -33,9 +33,18 @@
         .list-container { flex: 1; overflow-y: auto; } 
         
         ul { padding-left: 2px; margin: 2px 0; list-style: none; }
-        li { margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #eee; padding-bottom: 3px; }
         
-        .item-text { width: 73%; word-break: break-all; font-size: 13px; font-weight: 500; }
+        /* 📋 한 줄 아이템 구조 설정 */
+        li { margin-bottom: 4px; border-bottom: 1px dashed #eee; padding-bottom: 3px; display: flex; flex-direction: column; }
+        .item-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        
+        /* 🔍 제목 클릭 영역 (마우스 올리면 손가락 모양 변형 및 밑줄 효과) */
+        .item-text { width: 73%; word-break: break-all; font-size: 13px; font-weight: 500; cursor: pointer; user-select: none; }
+        .item-text:hover { text-decoration: underline; color: #0066cc; }
+        
+        /* 📖 펼쳐지는 상세 내용 영역 스타일 */
+        .item-body { display: none; padding: 6px; margin-top: 4px; background: #f9fbfd; border-left: 3px solid #24A1DE; font-size: 13px; color: #444; white-space: pre-wrap; word-break: break-all; }
+        
         .item-btns { width: 27%; text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 1px; }
         .item-btns .btn-sm { padding: 2px 4px; font-size: 11px; height: 22px; margin-left: 1px; background: #24A1DE; color: #fff; border: none; font-weight: bold; border-radius: 3px; }
 
@@ -61,7 +70,7 @@
         #lockScreen input { padding: 6px; width: 140px; text-align: center; font-size: 18px; border-radius: 4px; border: none; margin-bottom: 10px; color: #000; font-weight: bold; }
         .lock-err-msg { color: #ff6b6b; font-size: 13px; font-weight: bold; height: 16px; margin-top: 5px; visibility: hidden; }
 
-        /* 하단 컨트롤 바 (네이버박스 삭제 후 50%씩 균등 정렬) */
+        /* 하단 컨트롤 바 */
         .backup-bar { display: flex; justify-content: space-between; margin-top: auto; padding-top: 4px; border-top: 1px solid #ccc; gap: 6px; flex-shrink: 0; background: #fff; }
         .backup-bar .btn { font-size: 12px; padding: 6px 0; text-align: center; white-space: nowrap; font-weight: bold; width: 50%; }
         
@@ -420,32 +429,53 @@
             document.getElementById('searchKeyword').value = '';
         }
 
+        // 🔍 [접기/펼치기 제어] 제목 클릭 시 작동하는 토글 함수
+        function toggleDetails(id) {
+            const bodyDiv = document.getElementById(`body-${id}`);
+            if (bodyDiv.style.display === 'block') {
+                bodyDiv.style.display = 'none';
+            } else {
+                bodyDiv.style.display = 'block';
+            }
+        }
+
         function renderLists() {
             const memos = JSON.parse(localStorage.getItem('memos') || '[]');
             document.getElementById('memoList').innerHTML = memos.map(m => {
                 const fileIcon = m.fileName ? `<span style="font-size:11px; color:#24A1DE; font-weight:bold;" title="${m.fileName}">📁</span> ` : '';
+                // 첫 번째 줄만 제목으로 추출 (엔터 기준 분리)
+                const titleText = m.text.split('\n')[0]; 
+                
                 return `
                 <li data-search="${m.text.replace(/"/g, '&quot;')}">
-                    <span class="item-text">[${m.date}] ${fileIcon}${m.text}</span>
-                    <div class="item-btns">
-                        <button class="btn-action" onclick="startEdit('memos', ${m.id})" title="수정">✍️</button>
-                        <button class="btn-action" onclick="deleteItem('memos', ${m.id})" title="삭제">❌</button>
-                        <button class="btn btn-sm" onclick="sendTelegram('memos', ${m.id})">전송</button>
+                    <div class="item-header">
+                        <span class="item-text" onclick="toggleDetails(${m.id})">[${m.date}] ${fileIcon}${titleText}</span>
+                        <div class="item-btns">
+                            <button class="btn-action" onclick="startEdit('memos', ${m.id})" title="수정">✍️</button>
+                            <button class="btn-action" onclick="deleteItem('memos', ${m.id})" title="삭제">❌</button>
+                            <button class="btn btn-sm" onclick="sendTelegram('memos', ${m.id})">전송</button>
+                        </div>
                     </div>
+                    <div class="item-body" id="body-${m.id}">${m.text}${m.fileName ? `\n\n📎 첨부파일: ${m.fileName}` : ''}</div>
                 </li>
             `}).join('');
 
             const todos = JSON.parse(localStorage.getItem('todos') || '[]');
             document.getElementById('todoList').innerHTML = todos.map(t => {
                 const fileIcon = t.fileName ? `<span style="font-size:11px; color:#24A1DE; font-weight:bold;" title="${t.fileName}">📁</span> ` : '';
+                const titleText = t.text.split('\n')[0];
+
                 return `
                 <li data-search="${t.text.replace(/"/g, '&quot;')}">
-                    <span class="item-text">[${t.time}] ${fileIcon}${t.text}</span>
-                    <div class="item-btns">
-                        <button class="btn-action" onclick="startEdit('todos', ${t.id})" title="수정">✍️</button>
-                        <button class="btn-action" onclick="deleteItem('todos', ${t.id})" title="삭제">❌</button>
-                        <button class="btn btn-sm" onclick="sendTelegram('todos', ${t.id})">전송</button>
+                    <div class="item-header">
+                        <span class="item-text" onclick="toggleDetails(${t.id})">[${t.time}] ${fileIcon}${titleText}</span>
+                        <div class="item-btns">
+                            <button class="btn-action" onclick="startEdit('todos', ${t.id})" title="수정">✍️</button>
+                            <button class="btn-action" onclick="deleteItem('todos', ${t.id})" title="삭제">❌</button>
+                            <button class="btn btn-sm" onclick="sendTelegram('todos', ${t.id})">전송</button>
+                        </div>
                     </div>
+                    <div class="item-body" id="body-${t.id}">${t.text}${t.fileName ? `\n\n📎 첨부파일: ${t.fileName}` : ''}</div>
                 </li>
             `}).join('');
         }
@@ -474,7 +504,7 @@
 
                     const tickerItem = document.createElement('div');
                     tickerItem.className = 'ticker-item';
-                    tickerItem.innerHTML = `🚨 [15분전 알림] ${todo.text} (클릭시 삭제)`;
+                    tickerItem.innerHTML = `🚨 [15분전 알림] ${todo.text.split('\n')[0]} (클릭시 삭제)`;
                     tickerItem.onclick = function() { tickerItem.remove(); };
                     tickerContainer.appendChild(tickerItem);
                 }
