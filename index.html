@@ -2,11 +2,11 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>♥♥SulPuZana21 memo♥♥</title>
+    <title>업무용 보안 미니 메모장 (최신순 정렬 버전)</title>
     <script>
-        // 🔒 브라우저 오작동을 막기 위해 변수명을 T_KEY, T_ID로 변경했습니다.
-        const T_KEY ='8997134654:AAH1XU7UP0F1vDTaimZr2CnGJQM-EyCGNgw'; 
-        const T_ID ='8892583600'; 
+        // 🔒 브라우저 오작동(비번 업데이트 팝업) 방지 변수명 유지
+        const T_KEY = 'YOUR_BOT_TOKEN_HERE'; 
+        const T_ID = 'YOUR_CHAT_ID_HERE'; 
     </script>
     <style>
         html, body { height: 100%; margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; }
@@ -254,82 +254,86 @@
         function executeDelete() { if(!deleteTargetType || !deleteTargetId) return; const list = JSON.parse(localStorage.getItem(deleteTargetType) || '[]'); const filtered = list.filter(i => i.id !== deleteTargetId); localStorage.setItem(deleteTargetType, JSON.stringify(filtered)); closeDeleteModal(); renderLists(); showToast('🗑️ 삭제 완료'); }
 
         function saveData() {
-    const type = document.querySelector('input[name="dataType"]:checked').value; const text = document.getElementById('inputText').value.trim(); if(!text) return showToast('⚠️ 내용을 입력하세요.');
-    const now = new Date(); const timeStamp = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-    if(type === 'memo') {
-        let memos = JSON.parse(localStorage.getItem('memos') || '[]');
-        if(editId) { 
-            // 수정할 때도 최신 수정 건으로 위로 올리기 위해 기존 항목 삭제 후 재생성
-            memos = memos.filter(m => m.id !== editId);
+            const type = document.querySelector('input[name="dataType"]:checked').value; const text = document.getElementById('inputText').value.trim(); if(!text) return showToast('⚠️ 내용을 입력하세요.');
+            const now = new Date(); const timeStamp = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            if(type === 'memo') {
+                let memos = JSON.parse(localStorage.getItem('memos') || '[]');
+                if(editId) { 
+                    // 수정할 때도 최신 수정 건으로 위로 올리기 위해 고유 ID를 새로 갱신하여 상단으로 배치합니다.
+                    memos = memos.filter(m => m.id !== editId);
+                    memos.push({ id: Date.now(), text: text, date: timeStamp, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 });
+                } else {
+                    memos.push({ id: Date.now(), text: text, date: timeStamp, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 });
+                }
+                localStorage.setItem('memos', JSON.stringify(memos));
+            } else {
+                const rawTime = document.getElementById('smartTimeInput').value.trim(); if(rawTime.length !== 10 || isNaN(rawTime)) { return showToast('⚠️ 알람 10자리를 확인하세요.'); }
+                const mm = rawTime.slice(2, 4); const dd = rawTime.slice(4, 6); const hh = rawTime.slice(6, 8); const min = rawTime.slice(8, 10);
+                if(Number(mm) < 1 || Number(mm) > 12 || Number(dd) < 1 || Number(dd) > 31 || Number(hh) > 23 || Number(min) > 59) { return showToast('⚠️ 시각 범위 오류'); }
+                const formattedTarget = `${mm}-${dd} ${hh}:${min}`; let todos = JSON.parse(localStorage.getItem('todos') || '[]');
+                if(editId) { 
+                    // 할 일 수정 시에도 리스트 최상단으로 올리기 위해 항목을 최신 ID로 갱신하여 반영합니다.
+                    todos = todos.filter(t => t.id !== editId);
+                    todos.push({ id: Date.now(), text: text, time: formattedTarget, notified: false, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 });
+                } else {
+                    todos.push({ id: Date.now(), text: text, time: formattedTarget, notified: false, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 });
+                }
+                localStorage.setItem('todos', JSON.stringify(todos));
+            }
+            closeInputModal(); renderLists(); document.getElementById('searchKeyword').value = ''; showToast('✅ 저장 완료');
         }
-        memos.push({ id: Date.now(), text: text, date: timeStamp, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 });
-        localStorage.setItem('memos', JSON.stringify(memos));
-    } else {
-        const rawTime = document.getElementById('smartTimeInput').value.trim(); if(rawTime.length !== 10 || isNaN(rawTime)) { return showToast('⚠️ 알람 10자리를 확인하세요.'); }
-        const mm = rawTime.slice(2, 4); const dd = rawTime.slice(4, 6); const hh = rawTime.slice(6, 8); const min = rawTime.slice(8, 10);
-        if(Number(mm) < 1 || Number(mm) > 12 || Number(dd) < 1 || Number(dd) > 31 || Number(hh) > 23 || Number(min) > 59) { return showToast('⚠️ 시각 범위 오류'); }
-        const formattedTarget = `${mm}-${dd} ${hh}:${min}`; let todos = JSON.parse(localStorage.getItem('todos') || '[]');
-        if(editId) { 
-            // 할 일 수정 시에도 리스트 최상단으로 올리기 위해 기존 항목 삭제 후 재생성
-            todos = todos.filter(t => t.id !== editId);
-        }
-        todos.push({ id: Date.now(), text: text, time: formattedTarget, notified: false, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 });
-        localStorage.setItem('todos', JSON.stringify(todos));
-    }
-    closeInputModal(); renderLists(); document.getElementById('searchKeyword').value = ''; showToast('✅ 저장 완료');
-}
 
         function toggleDetails(id) { const bodyDiv = document.getElementById(`body-${id}`); if (bodyDiv.style.display === 'block') { bodyDiv.style.display = 'none'; } else { bodyDiv.style.display = 'block'; } }
 
         function renderLists() {
-    // 🔄 메모 목록: 최신 등록 데이터(ID가 큰 것)가 위로 오도록 내림차순(.sort) 정렬 추가
-    const memos = JSON.parse(localStorage.getItem('memos') || '[]');
-    memos.sort((a, b) => b.id - a.id);
-    
-    document.getElementById('memoList').innerHTML = memos.map(m => {
-        const fileIcon = m.fileName ? `<span style="font-size:11px; color:#24A1DE; font-weight:bold;" title="${m.fileName}">📁</span> ` : '';
-        const titleText = m.text.split('\n')[0]; const count = m.sendCount || 0; const badgeStyle = count > 0 ? 'display:block;' : 'display:none;';
-        return `
-        <li data-search="${m.text.replace(/"/g, '&quot;')}">
-            <div class="item-header">
-                <span class="item-text" onclick="toggleDetails(${m.id})">[${m.date}] ${fileIcon}${titleText}</span>
-                <div class="item-btns">
-                    <button class="btn-action" onclick="startEdit('memos', ${m.id})" title="수정">✍️</button>
-                    <button class="btn-action" onclick="deleteItem('memos', ${m.id})" title="삭제">❌</button>
-                    <div class="btn-container">
-                        <button class="btn btn-sm" onclick="sendTelegram('memos', ${m.id})">전송</button>
-                        <span class="send-badge" id="badge-memos-${m.id}" style="${badgeStyle}">${count}</span>
+            // 🔄 최신 등록 데이터(ID가 큰 것)가 위로 오도록 내림차순(.sort) 정렬 추가
+            const memos = JSON.parse(localStorage.getItem('memos') || '[]');
+            memos.sort((a, b) => b.id - a.id);
+            
+            document.getElementById('memoList').innerHTML = memos.map(m => {
+                const fileIcon = m.fileName ? `<span style="font-size:11px; color:#24A1DE; font-weight:bold;" title="${m.fileName}">📁</span> ` : '';
+                const titleText = m.text.split('\n')[0]; const count = m.sendCount || 0; const badgeStyle = count > 0 ? 'display:block;' : 'display:none;';
+                return `
+                <li data-search="${m.text.replace(/"/g, '&quot;')}">
+                    <div class="item-header">
+                        <span class="item-text" onclick="toggleDetails(${m.id})">[${m.date}] ${fileIcon}${titleText}</span>
+                        <div class="item-btns">
+                            <button class="btn-action" onclick="startEdit('memos', ${m.id})" title="수정">✍️</button>
+                            <button class="btn-action" onclick="deleteItem('memos', ${m.id})" title="삭제">❌</button>
+                            <div class="btn-container">
+                                <button class="btn btn-sm" onclick="sendTelegram('memos', ${m.id})">전송</button>
+                                <span class="send-badge" id="badge-memos-${m.id}" style="${badgeStyle}">${count}</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="item-body" id="body-${m.id}">${m.text}${m.fileName ? `\n\n📎 첨부파일: ${m.fileName}` : ''}</div>
-        </li>
-    `}).join('');
+                    <div class="item-body" id="body-${m.id}">${m.text}${m.fileName ? `\n\n📎 첨부파일: ${m.fileName}` : ''}</div>
+                </li>
+            `}).join('');
 
-    // 🔄 할 일 목록: 최신 등록 데이터(ID가 큰 것)가 위로 오도록 내림차순(.sort) 정렬 추가
-    const todos = JSON.parse(localStorage.getItem('todos') || '[]');
-    todos.sort((a, b) => b.id - a.id);
+            // 🔄 할 일 목록도 동일하게 최신 등록 데이터가 위로 오도록 정렬 추가
+            const todos = JSON.parse(localStorage.getItem('todos') || '[]');
+            todos.sort((a, b) => b.id - a.id);
 
-    document.getElementById('todoList').innerHTML = todos.map(t => {
-        const fileIcon = t.fileName ? `<span style="font-size:11px; color:#24A1DE; font-weight:bold;" title="${t.fileName}">📁</span> ` : '';
-        const titleText = t.text.split('\n')[0]; const count = t.sendCount || 0; const badgeStyle = count > 0 ? 'display:block;' : 'display:none;';
-        return `
-        <li data-search="${t.text.replace(/"/g, '&quot;')}">
-            <div class="item-header">
-                <span class="item-text" onclick="toggleDetails(${t.id})">[${t.time}] ${fileIcon}${titleText}</span>
-                <div class="item-btns">
-                    <button class="btn-action" onclick="startEdit('todos', ${t.id})" title="수정">✍️</button>
-                    <button class="btn-action" onclick="deleteItem('todos', ${t.id})" title="삭제">❌</button>
-                    <div class="btn-container">
-                        <button class="btn btn-sm" onclick="sendTelegram('todos', ${t.id})">전송</button>
-                        <span class="send-badge" id="badge-todos-${t.id}" style="${badgeStyle}">${count}</span>
+            document.getElementById('todoList').innerHTML = todos.map(t => {
+                const fileIcon = t.fileName ? `<span style="font-size:11px; color:#24A1DE; font-weight:bold;" title="${t.fileName}">📁</span> ` : '';
+                const titleText = t.text.split('\n')[0]; const count = t.sendCount || 0; const badgeStyle = count > 0 ? 'display:block;' : 'display:none;';
+                return `
+                <li data-search="${t.text.replace(/"/g, '&quot;')}">
+                    <div class="item-header">
+                        <span class="item-text" onclick="toggleDetails(${t.id})">[${t.time}] ${fileIcon}${titleText}</span>
+                        <div class="item-btns">
+                            <button class="btn-action" onclick="startEdit('todos', ${t.id})" title="수정">✍️</button>
+                            <button class="btn-action" onclick="deleteItem('todos', ${t.id})" title="삭제">❌</button>
+                            <div class="btn-container">
+                                <button class="btn btn-sm" onclick="sendTelegram('todos', ${t.id})">전송</button>
+                                <span class="send-badge" id="badge-todos-${t.id}" style="${badgeStyle}">${count}</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="item-body" id="body-${t.id}">${t.text}${t.fileName ? `\n\n📎 첨부파일: ${t.fileName}` : ''}</div>
-        </li>
-    `}).join('');
-}
+                    <div class="item-body" id="body-${t.id}">${t.text}${t.fileName ? `\n\n📎 첨부파일: ${t.fileName}` : ''}</div>
+                </li>
+            `}).join('');
+        }
 
         function filterItems() { const keyword = document.getElementById('searchKeyword').value.toLowerCase(); document.querySelectorAll('ul li').forEach(item => { const text = item.getAttribute('data-search').toLowerCase(); item.style.display = text.includes(keyword) ? 'flex' : 'none'; }); }
 
@@ -365,25 +369,24 @@
         }
 
         function sendTelegram(type, id) {
-            // 🔒 상단에서 새로 바꾼 변수명(T_KEY, T_ID)을 검증하도록 수정했습니다.
             if (T_KEY === 'YOUR_BOT_TOKEN_HERE' || T_ID === 'YOUR_CHAT_ID_HERE') { return showToast('⚠️ 텔레그램 설정을 확인하세요!'); }
             const list = JSON.parse(localStorage.getItem(type) || '[]'); const item = list.find(i => i.id === id); if(!item) return;
             const text = item.text;
 
             if (!item.fileName || !item.fileData) {
-                const url = `https://api.telegram.org/bot${T_KEY}/sendMessage`; // 👈 T_KEY 적용
-                fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: T_ID, text: text }) }) // 👈 T_ID 적용
+                const url = `https://api.telegram.org/bot${T_KEY}/sendMessage`;
+                fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: T_ID, text: text }) })
                 .then(res => { if (res.ok) { updateSendCount(type, id); showToast('🚀 메모 전송 완료!'); } else { showToast('❌ 전송 실패'); } })
                 .catch(err => showToast('❌ 네트워크 오류'));
             } 
             else {
-                const url = `https://api.telegram.org/bot${T_KEY}/sendDocument`; // 👈 T_KEY 적용
+                const url = `https://api.telegram.org/bot${T_KEY}/sendDocument`;
                 const byteString = atob(item.fileData.split(',')[1]); const mimeString = item.fileData.split(',')[0].split(':')[1].split(';')[0];
                 const ab = new ArrayBuffer(byteString.length); const ia = new Uint8Array(ab); for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
                 const blob = new Blob([ab], {type: mimeString});
 
                 const formData = new FormData();
-                formData.append('chat_id', T_ID); // 👈 T_ID 적용
+                formData.append('chat_id', T_ID);
                 formData.append('document', blob, item.fileName); formData.append('caption', text); 
                 fetch(url, { method: 'POST', body: formData })
                 .then(res => { if (res.ok) { updateSendCount(type, id); showToast('📎 파일 전송 완료!'); } else { showToast('❌ 파일 전송 실패'); } })
