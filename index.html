@@ -369,30 +369,36 @@
         }
 
         function sendTelegram(type, id) {
-            if (T_KEY === 'YOUR_BOT_TOKEN_HERE' || T_ID === 'YOUR_CHAT_ID_HERE') { return showToast('⚠️ 텔레그램 설정을 확인하세요!'); }
-            const list = JSON.parse(localStorage.getItem(type) || '[]'); const item = list.find(i => i.id === id); if(!item) return;
-            const text = item.text;
+    // 🔒 선생님이 상단에 입력하신 T_KEY와 T_ID 값이 정상적으로 들어갔는지 정확히 확인합니다.
+    if (!T_KEY || T_KEY === 'YOUR_BOT_TOKEN_HERE' || !T_ID || T_ID === 'YOUR_CHAT_ID_HERE') { 
+        return showToast('⚠️ 텔레그램 설정을 확인하세요!'); 
+    }
+    
+    const list = JSON.parse(localStorage.getItem(type) || '[]'); 
+    const item = list.find(i => i.id === id); 
+    if(!item) return;
+    const text = item.text;
 
-            if (!item.fileName || !item.fileData) {
-                const url = `https://api.telegram.org/bot${T_KEY}/sendMessage`;
-                fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: T_ID, text: text }) })
-                .then(res => { if (res.ok) { updateSendCount(type, id); showToast('🚀 메모 전송 완료!'); } else { showToast('❌ 전송 실패'); } })
-                .catch(err => showToast('❌ 네트워크 오류'));
-            } 
-            else {
-                const url = `https://api.telegram.org/bot${T_KEY}/sendDocument`;
-                const byteString = atob(item.fileData.split(',')[1]); const mimeString = item.fileData.split(',')[0].split(':')[1].split(';')[0];
-                const ab = new ArrayBuffer(byteString.length); const ia = new Uint8Array(ab); for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
-                const blob = new Blob([ab], {type: mimeString});
+    if (!item.fileName || !item.fileData) {
+        const url = `https://api.telegram.org/bot${T_KEY}/sendMessage`;
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: T_ID, text: text }) })
+        .then(res => { if (res.ok) { updateSendCount(type, id); showToast('🚀 메모 전송 완료!'); } else { showToast('❌ 전송 실패 (토큰/ID 값 오류)'); } })
+        .catch(err => showToast('❌ 네트워크 오류'));
+    } 
+    else {
+        const url = `https://api.telegram.org/bot${T_KEY}/sendDocument`;
+        const byteString = atob(item.fileData.split(',')[1]); const mimeString = item.fileData.split(',')[0].split(':')[1].split(';')[0];
+        const ab = new ArrayBuffer(byteString.length); const ia = new Uint8Array(ab); for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
+        const blob = new Blob([ab], {type: mimeString});
 
-                const formData = new FormData();
-                formData.append('chat_id', T_ID);
-                formData.append('document', blob, item.fileName); formData.append('caption', text); 
-                fetch(url, { method: 'POST', body: formData })
-                .then(res => { if (res.ok) { updateSendCount(type, id); showToast('📎 파일 전송 완료!'); } else { showToast('❌ 파일 전송 실패'); } })
-                .catch(err => showToast('❌ 네트워크 오류'));
-            }
-        }
+        const formData = new FormData();
+        formData.append('chat_id', T_ID);
+        formData.append('document', blob, item.fileName); formData.append('caption', text); 
+        fetch(url, { method: 'POST', body: formData })
+        .then(res => { if (res.ok) { updateSendCount(type, id); showToast('📎 파일 전송 완료!'); } else { showToast('❌ 파일 전송 실패'); } })
+        .catch(err => showToast('❌ 네트워크 오류'));
+    }
+}
     </script>
 </body>
 </html>
