@@ -5,8 +5,8 @@
     <title>업무용 보안 미니 메모장 (최신순 정렬 버전)</title>
     <script>
         // 🔒 브라우저 오작동(비번 업데이트 팝업) 방지 변수명 유지
-        const T_KEY = '8997134654:AAH1XU7UP0F1vDTaimZr2CnGJQM-EyCGNgw'; 
-        const T_ID = '8892583600'; 
+        const T_KEY = ''; 
+        const T_ID = ''; 
     </script>
     <style>
         html, body { height: 100%; margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; }
@@ -369,30 +369,41 @@
         }
 
         function sendTelegram(type, id) {
-    // 🔒 선생님이 상단에 입력하신 T_KEY와 T_ID 값이 정상적으로 들어갔는지 정확히 확인합니다.
-    if (!T_KEY || T_KEY === 'YOUR_BOT_TOKEN_HERE' || !T_ID || T_ID === 'YOUR_CHAT_ID_HERE') { 
-        return showToast('⚠️ 텔레그램 설정을 확인하세요!'); 
+    // 🔒 브라우저 임시 메모리(Session)에서 토큰과 ID를 가져옵니다.
+    let currentKey = sessionStorage.getItem('MY_T_KEY') || T_KEY;
+    let currentId = sessionStorage.getItem('MY_T_ID') || T_ID;
+
+    // 만약 임시 메모리에 없다면 최초 1회 사용자에게 안전하게 물어봅니다.
+    if (!currentKey || currentKey.includes('HERE') || currentKey === '') {
+        currentKey = prompt('🔒 깃허브 보안을 위해 텔레그램 [봇 토큰(TOKEN)]을 입력해 주세요:\n(창을 닫으면 자동으로 파기됩니다)');
+        if (!currentKey) return;
+        sessionStorage.setItem('MY_T_KEY', currentKey);
     }
-    
+    if (!currentId || currentId.includes('HERE') || currentId === '') {
+        currentId = prompt('🔒 텔레그램 [채팅 방 ID(CHAT ID)]를 입력해 주세요:');
+        if (!currentId) return;
+        sessionStorage.setItem('MY_T_ID', currentId);
+    }
+
     const list = JSON.parse(localStorage.getItem(type) || '[]'); 
     const item = list.find(i => i.id === id); 
     if(!item) return;
     const text = item.text;
 
     if (!item.fileName || !item.fileData) {
-        const url = `https://api.telegram.org/bot${T_KEY}/sendMessage`;
-        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: T_ID, text: text }) })
+        const url = `https://api.telegram.org/bot${currentKey}/sendMessage`; // 👈 안전한 임시 키 적용
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: currentId, text: text }) })
         .then(res => { if (res.ok) { updateSendCount(type, id); showToast('🚀 메모 전송 완료!'); } else { showToast('❌ 전송 실패 (토큰/ID 값 오류)'); } })
         .catch(err => showToast('❌ 네트워크 오류'));
     } 
     else {
-        const url = `https://api.telegram.org/bot${T_KEY}/sendDocument`;
+        const url = `https://api.telegram.org/bot${currentKey}/sendDocument`; // 👈 안전한 임시 키 적용
         const byteString = atob(item.fileData.split(',')[1]); const mimeString = item.fileData.split(',')[0].split(':')[1].split(';')[0];
         const ab = new ArrayBuffer(byteString.length); const ia = new Uint8Array(ab); for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
         const blob = new Blob([ab], {type: mimeString});
 
         const formData = new FormData();
-        formData.append('chat_id', T_ID);
+        formData.append('chat_id', currentId); // 👈 안전한 임시 ID 적용
         formData.append('document', blob, item.fileName); formData.append('caption', text); 
         fetch(url, { method: 'POST', body: formData })
         .then(res => { if (res.ok) { updateSendCount(type, id); showToast('📎 파일 전송 완료!'); } else { showToast('❌ 파일 전송 실패'); } })
