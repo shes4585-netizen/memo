@@ -177,8 +177,8 @@
     responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
     queryInput.value = '';
 
-    // ✅ 구글 에러 메시지 지침에 따라 신규 유저에게 완벽히 허용되는 최신 gemini-2.5-pro 주소로 매핑했습니다.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+    // ✅ 무료 등급(Free Tier) 유저에게 한도가 넉넉하게 제공되는 진짜 무료 모델 주소로 최종 세팅했습니다!
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
     
     try {
         const response = await fetch(url, {
