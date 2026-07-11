@@ -161,42 +161,46 @@
         async function handlePasswordInput() { const inputField = document.getElementById('passwordInput'); if (inputField.value.length === 4) { const storedHash = localStorage.getItem('hashed_pwd'); if (!storedHash) { const hash = await sha256(inputField.value); localStorage.setItem('hashed_pwd', hash); document.getElementById('lockScreen').style.display = 'none'; inputField.value = ''; resetLockTimer(); } else { const inputHash = await sha256(inputField.value); if (inputHash === storedHash) { document.getElementById('lockScreen').style.display = 'none'; inputField.value = ''; resetLockTimer(); } else { document.getElementById('lockError').style.visibility = 'visible'; inputField.value = ''; inputField.focus(); } } } }
 
         // 🤖 제미나이 API 전용 핵심 통신 함수
-        async function askGemini() {
-            const queryInput = document.getElementById('geminiQuery');
-            const responseDiv = document.getElementById('geminiResponse');
-            const query = queryInput.value.trim();
-            if (!query) return;
+    async function askGemini() {
+    const queryInput = document.getElementById('geminiQuery');
+    const responseDiv = document.getElementById('geminiResponse');
+    const query = queryInput.value.trim();
+    if (!query) return;
 
-            // 브라우저 임시 메모리(Session)에서 키를 조회하고 없으면 팝업으로 입력 유도
-            let apiKey = sessionStorage.getItem('MY_GEMINI_KEY');
-            if (!apiKey) {
-                apiKey = prompt('🔒 깃허브 보안을 위해 [제미나이 API KEY]를 입력해 주세요:\n(창을 닫으면 이 컴퓨터에서 즉시 자동 파기됩니다)');
-                if (!apiKey) return;
-                sessionStorage.setItem('MY_GEMINI_KEY', apiKey);
-            }
+    let apiKey = sessionStorage.getItem('MY_GEMINI_KEY');
+    if (!apiKey) {
+        apiKey = prompt('🔒 깃허브 보안을 위해 [제미나이 API KEY]를 입력해 주세요:\n(창을 닫으면 이 컴퓨터에서 즉시 자동 파기됩니다)');
+        if (!apiKey) return;
+        sessionStorage.setItem('MY_GEMINI_KEY', apiKey);
+    }
 
-            responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
-            queryInput.value = '';
+    responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
+    queryInput.value = '';
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-            
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: query }] }] })
-                });
+    // 🔄 최신 안정화 버전(v1) 및 모델 경로로 주소를 수정하여 에러를 방지합니다.
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: query }] }] })
+        });
 
-                const data = await response.json();
-                if (data.candidates && data.candidates[0].content.parts[0].text) {
-                    responseDiv.innerText = data.candidates[0].content.parts[0].text;
-                } else {
-                    responseDiv.innerText = '❌ 에러: API 키가 잘못되었거나 오류가 발생했습니다.';
-                }
-            } catch (error) {
-                responseDiv.innerText = '❌ 네트워크 연결 오류가 발생했습니다.';
-            }
+        const data = await response.json();
+        
+        // 구글 서버에서 보낸 구체적인 에러 메시지가 있다면 화면에 직접 뿌려주도록 개선했습니다.
+        if (data.error) {
+            responseDiv.innerText = `❌ 구글 서버 에러: ${data.error.message}\n(코드: ${data.error.code})`;
+        } else if (data.candidates && data.candidates[0].content.parts[0].text) {
+            responseDiv.innerText = data.candidates[0].content.parts[0].text;
+        } else {
+            responseDiv.innerText = '❌ 에러: 답변을 생성할 수 없습니다. 잠시 후 다시 시도해 주세요.';
         }
+    } catch (error) {
+        responseDiv.innerText = '❌ 네트워크 연결 오류가 발생했습니다.';
+    }
+}
 
         // 🔒 안전한 텔레그램 전송 (임시 세션 활용)
         function sendTelegram(type, id) {
