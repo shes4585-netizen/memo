@@ -160,7 +160,7 @@
         function resetLockTimer() { if (document.getElementById('lockScreen').style.display === 'block') return; clearTimeout(lockTimer); lockTimer = setTimeout(triggerLock, LOCK_TIMEOUT); }
         async function handlePasswordInput() { const inputField = document.getElementById('passwordInput'); if (inputField.value.length === 4) { const storedHash = localStorage.getItem('hashed_pwd'); if (!storedHash) { const hash = await sha256(inputField.value); localStorage.setItem('hashed_pwd', hash); document.getElementById('lockScreen').style.display = 'none'; inputField.value = ''; resetLockTimer(); } else { const inputHash = await sha256(inputField.value); if (inputHash === storedHash) { document.getElementById('lockScreen').style.display = 'none'; inputField.value = ''; resetLockTimer(); } else { document.getElementById('lockError').style.visibility = 'visible'; inputField.value = ''; inputField.focus(); } } } }
 
-   // 🤖 제미나이 API 전용 핵심 통신 함수
+  // 🤖 제미나이 API 전용 핵심 통신 함수
     async function askGemini() {
     const queryInput = document.getElementById('geminiQuery');
     const responseDiv = document.getElementById('geminiResponse');
@@ -171,17 +171,14 @@
     if (!apiKey) {
         apiKey = prompt('🔒 깃허브 보안을 위해 [제미나이 API KEY]를 입력해 주세요:\n(창을 닫으면 이 컴퓨터에서 즉시 자동 파기됩니다)');
         if (!apiKey) return;
-        
-        // ✂️ 키 입력 시 혹시라도 들어갔을 앞뒤 빈칸(공백)을 완벽하게 잘라내 안전하게 저장합니다.
-        apiKey = apiKey.trim();
         sessionStorage.setItem('MY_GEMINI_KEY', apiKey);
     }
 
     responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
     queryInput.value = '';
 
-    // ✅ 2026년 현재 구글이 공식적으로 승인하는 정식 무료 표준 모델 주소 규격입니다.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // ✅ 구글 에러 메시지 지침에 따라 신규 유저에게 완벽히 허용되는 최신 gemini-2.5-pro 주소로 매핑했습니다.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
     
     try {
         const response = await fetch(url, {
