@@ -76,9 +76,8 @@
     </div>
 
     <div class="backup-bar">
-        <button class="btn" style="background: #a334cc; color: #fff; width: 34%;" onclick="alert('공용PC 보안을 위해 [시크릿 창]으로 열립니다. 구글 계정 로그인 후 사용하시고, 볼일이 끝나면 이 미니창만 닫으시면 로그인 흔적이 완전히 사라집니다!'); window.open('https://gemini.google.com', 'geminiPrivateWin', 'width=440,height=600,top=100,left=500,private=yes,incognito=yes');">🤖 안전 제미나이</button>
-        <button class="btn" onclick="backupData()" style="width:33%;">💾 파일 백업</button>
-        <button class="btn" onclick="document.getElementById('fileChooser').click()" style="width:33%;">📂 파일 복원</button>
+        <button class="btn" onclick="backupData()">💾 파일 백업</button>
+        <button class="btn" onclick="document.getElementById('fileChooser').click()">📂 파일 복원</button>
         <input type="file" id="fileChooser" style="display:none;" onchange="restoreData(this)">
     </div>
 
