@@ -178,7 +178,8 @@
     queryInput.value = '';
 
     // ✅ 무료 등급(Free Tier) 유저에게 한도가 넉넉하게 제공되는 진짜 무료 모델 주소로 최종 세팅했습니다!
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    // askGemini 함수 내의 url 주소를 이 한 줄로 교체해 주세요!
+const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     try {
         const response = await fetch(url, {
