@@ -177,8 +177,8 @@
     responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
     queryInput.value = '';
 
-    // ✅ 최신 모델 한도가 막혔을 때, 무료 등급에서 우회 작동할 확률이 가장 높은 gemini-1.5-pro 주소입니다.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+    // ✅ 2026년 현재 신규 무료 티어의 유일한 표준 모델 주소입니다. (서버 활성화 대기 필요)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
     
     try {
         const response = await fetch(url, {
