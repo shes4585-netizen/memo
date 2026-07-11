@@ -177,8 +177,8 @@
     responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
     queryInput.value = '';
 
-    // ✅ v1beta 규격에서 확실하게 작동하는 gemini-1.5-flash 전용 통신 주소로 전면 수정했습니다.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // ✅ 구글 API 최신 표준인 gemini-2.5-flash 모델 주소로 전면 교체하여 404 오류를 해결합니다.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     
     try {
         const response = await fetch(url, {
