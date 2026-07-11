@@ -177,8 +177,8 @@
     responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
     queryInput.value = '';
 
-    // 🔄 최신 안정화 버전(v1) 및 모델 경로로 주소를 수정하여 에러를 방지합니다.
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // ✅ v1beta 규격에서 확실하게 작동하는 gemini-1.5-flash 전용 통신 주소로 전면 수정했습니다.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     try {
         const response = await fetch(url, {
@@ -189,13 +189,12 @@
 
         const data = await response.json();
         
-        // 구글 서버에서 보낸 구체적인 에러 메시지가 있다면 화면에 직접 뿌려주도록 개선했습니다.
         if (data.error) {
             responseDiv.innerText = `❌ 구글 서버 에러: ${data.error.message}\n(코드: ${data.error.code})`;
         } else if (data.candidates && data.candidates[0].content.parts[0].text) {
             responseDiv.innerText = data.candidates[0].content.parts[0].text;
         } else {
-            responseDiv.innerText = '❌ 에러: 답변을 생성할 수 없습니다. 잠시 후 다시 시도해 주세요.';
+            responseDiv.innerText = '❌ 에러: 답변 형식이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.';
         }
     } catch (error) {
         responseDiv.innerText = '❌ 네트워크 연결 오류가 발생했습니다.';
