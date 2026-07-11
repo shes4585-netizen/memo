@@ -177,8 +177,8 @@
     responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
     queryInput.value = '';
 
-    // ✅ 새 프로젝트 계정에서 404와 429 제한을 완벽하게 우회하는 최신형 무료 표준 모델 주소입니다!
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    // ✅ 최신 모델 한도가 막혔을 때, 무료 등급에서 우회 작동할 확률이 가장 높은 gemini-1.5-pro 주소입니다.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
     
     try {
         const response = await fetch(url, {
@@ -200,7 +200,6 @@
         responseDiv.innerText = '❌ 네트워크 연결 오류가 발생했습니다.';
     }
 }
-
         // 🔒 안전한 텔레그램 전송 (임시 세션 활용)
         function sendTelegram(type, id) {
             let currentKey = sessionStorage.getItem('MY_T_KEY') || T_KEY;
