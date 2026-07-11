@@ -177,8 +177,8 @@
     responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
     queryInput.value = '';
 
-    // ✅ 구글 에러 지침에 맞춰 완벽하게 승인되는 최신 정식 모델 주소로 최종 매핑했습니다.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${apiKey}`;
+    // ✅ 구글 API 서버가 상시 개방해 둔 표준 안정 버전(gemini-1.5-flash) 주소로 최종 교정했습니다.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     try {
         const response = await fetch(url, {
