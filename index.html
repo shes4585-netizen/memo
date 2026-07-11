@@ -177,8 +177,8 @@
     responseDiv.innerText = '🤖 제미나이가 생각 중입니다...';
     queryInput.value = '';
 
-    // ✅ 새로 만든 프로젝트에서 100% 안정적으로 무료 작동하는 표준 flash 모델 주소입니다.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // ✅ 새 프로젝트에서 404와 429를 모두 피할 수 있는 2026년 표준 무료 모델 주소입니다!
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     
     try {
         const response = await fetch(url, {
