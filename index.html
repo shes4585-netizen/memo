@@ -154,23 +154,20 @@
             window.open(targetUrl, 'secureAiWin', 'width=450,height=600,top=100,left=500,private=yes,incognito=yes');
         }
 
-        function sendTelegram(type, id) {
+    function sendTelegram(type, id) {
     let currentKey = sessionStorage.getItem('MY_T_KEY') || T_KEY;
     let currentId = sessionStorage.getItem('MY_T_ID') || T_ID;
     
-    // 앞뒤 공백(스페이스, 줄바꿈)을 코드가 알아서 원천 차단(Trim)하도록 안전장치를 걸었습니다.
     if (currentKey) currentKey = currentKey.trim();
     if (currentId) currentId = currentId.trim();
 
     if (!currentKey || currentKey === '') {
-        currentKey = prompt('🔒 텔레그램 [봇 토큰(TOKEN)]을 입력하세요:'); 
-        if (!currentKey) return;
+        currentKey = prompt('🔒 텔레그램 [봇 토큰(TOKEN)]을 입력하세요:'); if (!currentKey) return;
         currentKey = currentKey.trim();
         sessionStorage.setItem('MY_T_KEY', currentKey);
     }
     if (!currentId || currentId === '') {
-        currentId = prompt('🔒 텔레그램 [채팅방 ID(CHAT ID)]를 입력하세요:'); 
-        if (!currentId) return;
+        currentId = prompt('🔒 텔레그램 [채팅방 ID(CHAT ID)]를 입력하세요:'); if (!currentId) return;
         currentId = currentId.trim();
         sessionStorage.setItem('MY_T_ID', currentId);
     }
@@ -180,12 +177,10 @@
     if(!item) return;
     const text = item.text;
 
-    // 🔍 디버깅용 주소 유효성 검사 (서버로 날아가기 직전 주소를 콘솔에 찍어봅니다)
-    const testUrl = `https://api.telegram.org/bot${currentKey}/sendMessage`;
-    console.log("✈️ 전송 시도 주소:", testUrl);
-
     if (!item.fileName || !item.fileData) {
-        fetch(testUrl, { 
+        // 📝 [일반 텍스트 전송]
+        const url = `https://api.telegram.org/bot${currentKey}/sendMessage`;
+        fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify({ chat_id: currentId, text: text }) 
@@ -196,7 +191,6 @@
                 showToast('🚀 메모 전송 완료!'); 
             } else { 
                 const errData = await res.json();
-                // 💡 실패 시 텔레그램이 보낸 진짜 날것의 에러 이유를 경고창(alert)으로 띄워버립니다.
                 alert(`❌ 텔레그램 서버 에러 정보:\n상태코드: ${res.status}\n상세내용: ${JSON.stringify(errData)}`);
                 showToast('❌ 전송 실패'); 
             } 
@@ -204,32 +198,42 @@
             alert(`❌ 네트워크 통신 자체 오류:\n${err.message}`);
         });
     } else {
+        // 📁 [첨부파일 전송 - 주소 및 폼 형식 규정 보완]
         const url = `https://api.telegram.org/bot${currentKey}/sendDocument`;
-        const byteString = atob(item.fileData.split(',')[1]); 
-        const mimeString = item.fileData.split(',')[0].split(':')[1].split(';')[0];
-        const ab = new ArrayBuffer(byteString.length); 
-        const ia = new Uint8Array(ab); 
-        for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
-        const blob = new Blob([ab], {type: mimeString});
         
-        const formData = new FormData(); 
-        formData.append('chat_id', currentId); 
-        formData.append('document', blob, item.fileName); 
-        formData.append('caption', text); 
-        
-        fetch(url, { method: 'POST', body: formData })
-        .then(async res => { 
-            if (res.ok) { 
-                updateSendCount(type, id); 
-                showToast('📎 파일 전송 완료!'); 
-            } else { 
-                const errData = await res.json();
-                alert(`❌ 파일 전송 에러 정보:\n상태코드: ${res.status}\n상세내용: ${JSON.stringify(errData)}`);
-                showToast('❌ 실패'); 
-            } 
-        }).catch(err => {
-            alert(`❌ 네트워크 통신 자체 오류:\n${err.message}`);
-        });
+        try {
+            const byteString = atob(item.fileData.split(',')[1]); 
+            const mimeString = item.fileData.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length); 
+            const ia = new Uint8Array(ab); 
+            for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
+            const blob = new Blob([ab], {type: mimeString});
+            
+            const formData = new FormData(); 
+            formData.append('chat_id', currentId); 
+            formData.append('document', blob, item.fileName); 
+            formData.append('caption', text); 
+            
+            // fetch 요청 시 헤더를 명시적으로 비워두어 브라우저가 멀티파트 경계값을 자동으로 설정하도록 유도합니다.
+            fetch(url, { 
+                method: 'POST', 
+                body: formData 
+            })
+            .then(async res => { 
+                if (res.ok) { 
+                    updateSendCount(type, id); 
+                    showToast('📎 파일 전송 완료!'); 
+                } else { 
+                    const errData = await res.json();
+                    alert(`❌ 파일 전송 에러 정보:\n상태코드: ${res.status}\n상세내용: ${JSON.stringify(errData)}`);
+                    showToast('❌ 실패'); 
+                } 
+            }).catch(err => {
+                alert(`❌ 네트워크 통신 자체 오류:\n${err.message}`);
+            });
+        } catch (e) {
+            alert(`❌ 파일 데이터 변환 오류: 파일이 깨졌거나 형식이 올바르지 않습니다.\n새로 첨부하여 시도해 주세요.`);
+        }
     }
 }
 
