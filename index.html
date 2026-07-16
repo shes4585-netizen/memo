@@ -157,17 +157,19 @@
     function sendTelegram(type, id) {
     let currentKey = sessionStorage.getItem('MY_T_KEY') || T_KEY;
     let currentId = sessionStorage.getItem('MY_T_ID') || T_ID;
-    
-    if (currentKey) currentKey = currentKey.trim();
-    if (currentId) currentId = currentId.trim();
 
-    if (!currentKey || currentKey === '') {
-        currentKey = prompt('🔒 텔레그램 [봇 토큰(TOKEN)]을 입력하세요:'); if (!currentKey) return;
+    // 💡 [핵심 수정] 만약 토큰이나 ID가 잘못 입력되어 오류가 났을 때, 
+    // 사용자가 다시 올바른 정보를 입력할 수 있도록 팝업창으로 재차 확인받는 안전장치입니다.
+    if (!currentKey || currentKey === '' || currentKey.includes('undefined')) {
+        currentKey = prompt('🔒 올바른 텔레그램 [봇 토큰(TOKEN)]을 정확히 입력하세요:'); 
+        if (!currentKey) return;
         currentKey = currentKey.trim();
         sessionStorage.setItem('MY_T_KEY', currentKey);
     }
-    if (!currentId || currentId === '') {
-        currentId = prompt('🔒 텔레그램 [채팅방 ID(CHAT ID)]를 입력하세요:'); if (!currentId) return;
+    
+    if (!currentId || currentId === '' || currentId.includes('undefined')) {
+        currentId = prompt('🔒 올바른 텔레그램 [채팅방 ID(CHAT ID)]를 정확히 입력하세요:\n(그룹방/채널은 앞에 마이너스 - 기호 필수)'); 
+        if (!currentId) return;
         currentId = currentId.trim();
         sessionStorage.setItem('MY_T_ID', currentId);
     }
@@ -177,9 +179,11 @@
     if(!item) return;
     const text = item.text;
 
+    // 텍스트 전송 주소 조립 (bot 단어 확실하게 포함)
+    const url = `https://api.telegram.org/bot${currentKey}/sendMessage`;
+
     if (!item.fileName || !item.fileData) {
-        // 📝 [일반 텍스트 전송]
-        const url = `https://api.telegram.org/bot${currentKey}/sendMessage`;
+        // 📝 일반 텍스트 전송
         fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
@@ -191,16 +195,18 @@
                 showToast('🚀 메모 전송 완료!'); 
             } else { 
                 const errData = await res.json();
-                alert(`❌ 텔레그램 서버 에러 정보:\n상태코드: ${res.status}\n상세내용: ${JSON.stringify(errData)}`);
+                // ⚠️ 전송 실패 시, 기존에 잘못 저장된 토큰/ID 기억을 강제로 지워버립니다. (재입력 유도)
+                sessionStorage.removeItem('MY_T_KEY');
+                sessionStorage.removeItem('MY_T_ID');
+                alert(`❌ 전송 실패! 입력하신 정보가 올바르지 않습니다.\n\n[오류 원인]: ${errData.description}\n\n다시 [전송] 버튼을 눌러 정확한 정보를 입력해 주세요.`);
                 showToast('❌ 전송 실패'); 
             } 
         }).catch(err => {
             alert(`❌ 네트워크 통신 자체 오류:\n${err.message}`);
         });
     } else {
-        // 📁 [첨부파일 전송 - 주소 및 폼 형식 규정 보완]
-        const url = `https://api.telegram.org/bot${currentKey}/sendDocument`;
-        
+        // 📁 첨부파일 전송
+        const fileUrl = `https://api.telegram.org/bot${currentKey}/sendDocument`;
         try {
             const byteString = atob(item.fileData.split(',')[1]); 
             const mimeString = item.fileData.split(',')[0].split(':')[1].split(';')[0];
@@ -214,25 +220,24 @@
             formData.append('document', blob, item.fileName); 
             formData.append('caption', text); 
             
-            // fetch 요청 시 헤더를 명시적으로 비워두어 브라우저가 멀티파트 경계값을 자동으로 설정하도록 유도합니다.
-            fetch(url, { 
-                method: 'POST', 
-                body: formData 
-            })
+            fetch(fileUrl, { method: 'POST', body: formData })
             .then(async res => { 
                 if (res.ok) { 
                     updateSendCount(type, id); 
                     showToast('📎 파일 전송 완료!'); 
                 } else { 
                     const errData = await res.json();
-                    alert(`❌ 파일 전송 에러 정보:\n상태코드: ${res.status}\n상세내용: ${JSON.stringify(errData)}`);
+                    // ⚠️ 실패 시 기억 초기화
+                    sessionStorage.removeItem('MY_T_KEY');
+                    sessionStorage.removeItem('MY_T_ID');
+                    alert(`❌ 파일 전송 실패!\n\n[오류 원인]: ${errData.description}\n\n다시 시도하여 정확한 키를 입력해 주세요.`);
                     showToast('❌ 실패'); 
                 } 
             }).catch(err => {
                 alert(`❌ 네트워크 통신 자체 오류:\n${err.message}`);
             });
         } catch (e) {
-            alert(`❌ 파일 데이터 변환 오류: 파일이 깨졌거나 형식이 올바르지 않습니다.\n새로 첨부하여 시도해 주세요.`);
+            alert(`❌ 파일 변환 오류입니다.`);
         }
     }
 }
