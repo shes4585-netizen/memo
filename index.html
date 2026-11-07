@@ -46,6 +46,10 @@
         .modal-content { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 12px; width: 90%; border-radius: 6px; box-shadow: 0 3px 15px rgba(0,0,0,0.25); box-sizing: border-box; }
         .modal-content textarea { width: 100%; padding: 8px; margin: 6px 0; height: 95px; resize: none; font-size: 14px; box-sizing: border-box; border: 1px solid #bbb; border-radius: 4px; }
         .file-input-group { margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .hidden-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; z-index: -1; }
+        .file-pick-btn { display: inline-block; padding: 2px 6px; font-size: 12px; background: #f5f5f5; user-select: none; }
+        .drop-hint { font-size: 11px; color: #888; border: 1px dashed #bbb; border-radius: 4px; padding: 4px; text-align: center; margin-bottom: 6px; }
+        .drop-hint.over { background: #e8f4fd; border-color: #24A1DE; color: #24A1DE; }
         .file-name-label { font-size: 11px; color: #666; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         #timeInputGroup { display: none; margin-bottom: 6px; }
         #smartTimeInput { width: 100%; padding: 6px; font-size: 14px; border: 1px solid #bbb; border-radius: 4px; font-weight: bold; box-sizing: border-box; }
@@ -91,8 +95,8 @@
 
     <div class="backup-bar">
         <button class="btn" onclick="backupData()">💾 파일 백업</button>
-        <button class="btn" onclick="document.getElementById('fileChooser').click()">📂 파일 복원</button>
-        <input type="file" id="fileChooser" style="display:none;" onchange="restoreData(this)">
+        <label for="fileChooser" class="btn" style="width:50%; font-size:12px; padding:6px 0; text-align:center; font-weight:bold;">📂 파일 복원</label>
+        <input type="file" id="fileChooser" class="hidden-file" onchange="restoreData(this)">
     </div>
 
     <div id="toastNotification" class="toast-msg"></div>
@@ -106,9 +110,13 @@
             <textarea id="inputText" placeholder="내용을 입력해 주세요..."></textarea>
             
             <div class="file-input-group">
-                <button class="btn" type="button" style="padding:2px 6px; font-size:12px; background:#f5f5f5;" onclick="document.getElementById('memoFile').click()">📎 파일 첨부</button>
+                <!-- [수정] 스크립트로 대신 클릭하지 않고 label로 직접 연결 (일부 크롬 환경에서 창이 안 뜨던 문제) -->
+                <label for="memoFile" class="btn file-pick-btn">📎 파일 첨부</label>
                 <span id="fileStatus" class="file-name-label">선택된 파일 없음</span>
-                <input type="file" id="memoFile" style="display:none;" onchange="updateFileLabel()">
+                <input type="file" id="memoFile" class="hidden-file" onchange="updateFileLabel()">
+            </div>
+            <div id="dropHint" class="drop-hint">또는 파일을 여기로 끌어다 놓거나, 캡처 화면을 Ctrl+V로 붙여넣기</div>
+            <div>
             </div>
             
             <div id="timeInputGroup">
@@ -257,7 +265,15 @@
         function closeInputModal() { document.getElementById('inputModal').style.display = 'none'; document.getElementById('inputText').value = ''; document.getElementById('smartTimeInput').value = ''; attachedFileBase64 = null; attachedFileName = ""; fileReadPromise = null; editId = null; document.getElementById('memoFile').value = ""; document.getElementById('fileStatus').innerText = "선택된 파일 없음"; }
         function toggleTimeInput(show) { document.getElementById('timeInputGroup').style.display = show ? 'block' : 'none'; }
         // [수정] 파일 읽기가 끝날 때까지 기다릴 수 있도록 Promise로 관리 (읽기 전에 '등록'을 누르면 파일이 빠지던 문제)
-        function updateFileLabel() { const fileInput = document.getElementById('memoFile'); const file = fileInput.files[0]; if (!file) return; if (file.size > 20 * 1024 * 1024) { showToast("⚠️ 파일은 20MB 이하만 가능"); fileInput.value = ""; return; } attachedFileName = file.name; attachedFileBase64 = null; document.getElementById('fileStatus').innerText = "⏳ " + file.name; fileReadPromise = new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = function(e) { attachedFileBase64 = e.target.result; document.getElementById('fileStatus').innerText = file.name; resolve(); }; reader.onerror = function() { attachedFileName = ""; document.getElementById('fileStatus').innerText = "⚠️ 파일 읽기 실패"; reject(); }; reader.readAsDataURL(file); }); }
+        // [추가] 끌어다 놓기 / Ctrl+V 붙여넣기로도 첨부
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.querySelector('#inputModal .modal-content'); const hint = document.getElementById('dropHint');
+            modal.addEventListener('dragover', e => { e.preventDefault(); hint.classList.add('over'); });
+            modal.addEventListener('dragleave', () => hint.classList.remove('over'));
+            modal.addEventListener('drop', e => { e.preventDefault(); hint.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) updateFileLabel(f); });
+            document.addEventListener('paste', e => { const im = document.getElementById('inputModal'); if (!im || im.style.display !== 'block') return; const f = [...(e.clipboardData?.files || [])][0]; if (f) { e.preventDefault(); updateFileLabel(f.name === 'image.png' ? new File([f], `캡처_${Date.now()}.png`, { type: f.type }) : f); } });
+        });
+        function updateFileLabel(droppedFile) { const fileInput = document.getElementById('memoFile'); const file = droppedFile || fileInput.files[0]; if (!file) return; if (file.size > 20 * 1024 * 1024) { showToast("⚠️ 파일은 20MB 이하만 가능"); fileInput.value = ""; return; } attachedFileName = file.name; attachedFileBase64 = null; document.getElementById('fileStatus').innerText = "⏳ " + file.name; fileReadPromise = new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = function(e) { attachedFileBase64 = e.target.result; document.getElementById('fileStatus').innerText = file.name; resolve(); }; reader.onerror = function() { attachedFileName = ""; document.getElementById('fileStatus').innerText = "⚠️ 파일 읽기 실패"; reject(); }; reader.readAsDataURL(file); }); }
         async function startEdit(type, id) { const list = JSON.parse(localStorage.getItem(type) || '[]'); const item = list.find(i => i.id === id); if(!item) return; editId = id; attachedFileName = ""; attachedFileBase64 = null; fileReadPromise = null; document.getElementById('memoFile').value = ""; document.getElementById('fileStatus').innerText = "선택된 파일 없음"; document.getElementById('inputModal').style.display = 'block'; document.getElementById('inputText').value = item.text; if (item.fileName) { attachedFileName = item.fileName; document.getElementById('fileStatus').innerText = item.fileName + " (보관됨)"; fileReadPromise = getItemFile(item).then(d => { attachedFileBase64 = d; }); } if(type === 'memos') { document.querySelector('input[name="dataType"][value="memo"]').checked = true; toggleTimeInput(false); } else { document.querySelector('input[name="dataType"][value="todo"]').checked = true; toggleTimeInput(true); } document.getElementById('inputText').focus(); }
         function deleteItem(type, id) { deleteTargetType = type; deleteTargetId = id; document.getElementById('deleteModal').style.display = 'block'; }
         function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; }
