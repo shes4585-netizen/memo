@@ -149,7 +149,7 @@
         
         window.onload = function() {
             renderLists();
-            const isAppWindow = window.name === 'miniMemoWindow' || window.matchMedia('(display-mode: standalone)').matches || (window.outerWidth > 0 && window.outerWidth < 500);
+            const isAppWindow = new URLSearchParams(location.search).has('tab') || window.name === 'miniMemoWindow' || window.matchMedia('(display-mode: standalone)').matches || (window.outerWidth > 0 && window.outerWidth < 500);
             if(!isAppWindow) {
                 const btn = document.createElement('button'); btn.className = 'btn btn-main'; btn.innerText = '🚀 업무용 콤팩트 미니 창 열기'; btn.style.margin = '20px auto';
                 btn.onclick = function() { window.open(window.location.href, 'miniMemoWindow', 'width=360,height=560,top=100,left=100,scrollbars=no,resizable=yes'); };
