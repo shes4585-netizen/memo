@@ -127,7 +127,15 @@
 
     <script>
         let lockTimer; const LOCK_TIMEOUT = 60 * 1000; let editId = null; let deleteTargetType = null; let deleteTargetId = null;
-        let attachedFileBase64 = null; let attachedFileName = "";
+        let attachedFileBase64 = null; let attachedFileName = ""; let fileReadPromise = null;
+
+        // 📦 [수정] 첨부파일은 용량이 큰 IndexedDB에 따로 보관 (localStorage는 5MB 한도라 파일이 저장되지 않던 원인)
+        function openFileDB() { return new Promise((res, rej) => { const r = indexedDB.open('memoFilesDB', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+        async function idbPut(key, val) { const db = await openFileDB(); return new Promise((res, rej) => { const tx = db.transaction('files', 'readwrite'); tx.objectStore('files').put(val, String(key)); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+        async function idbGet(key) { const db = await openFileDB(); return new Promise((res, rej) => { const r = db.transaction('files').objectStore('files').get(String(key)); r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error); }); }
+        async function idbDel(key) { const db = await openFileDB(); return new Promise((res) => { const tx = db.transaction('files', 'readwrite'); tx.objectStore('files').delete(String(key)); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
+        async function getItemFile(item) { if (item.fileData) return item.fileData; if (item.fileName) return await idbGet(item.id); return null; }
+        function safeSetItem(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { alert('❌ 저장 공간이 부족해 저장하지 못했습니다.\n오래된 메모를 정리하거나 백업 후 삭제해 주세요.'); return false; } }
 
         async function sha256(message) { const msgBuffer = new TextEncoder().encode(message); const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer); const hashArray = Array.from(new Uint8Array(hashBuffer)); return hashArray.map(b => b.toString(16).padStart(2, '0')).join(''); }
         
@@ -154,7 +162,7 @@
             window.open(targetUrl, 'secureAiWin', 'width=450,height=600,top=100,left=500,private=yes,incognito=yes');
         }
 
-    function sendTelegram(type, id) {
+    async function sendTelegram(type, id) {
     let currentKey = sessionStorage.getItem('MY_T_KEY') || T_KEY;
     let currentId = sessionStorage.getItem('MY_T_ID') || T_ID;
 
@@ -182,7 +190,10 @@
     // 텍스트 전송 주소 조립 (bot 단어 확실하게 포함)
     const url = `https://api.telegram.org/bot${currentKey}/sendMessage`;
 
-    if (!item.fileName || !item.fileData) {
+    const fileData = await getItemFile(item);
+    if (item.fileName && !fileData) { alert('⚠️ 첨부파일 데이터가 없습니다. (이전 버전에서 저장이 실패한 메모)\n✍️ 수정 버튼으로 파일을 다시 첨부해 주세요.'); return; }
+
+    if (!item.fileName || !fileData) {
         // 📝 일반 텍스트 전송
         fetch(url, { 
             method: 'POST', 
@@ -208,8 +219,8 @@
         // 📁 첨부파일 전송
         const fileUrl = `https://api.telegram.org/bot${currentKey}/sendDocument`;
         try {
-            const byteString = atob(item.fileData.split(',')[1]); 
-            const mimeString = item.fileData.split(',')[0].split(':')[1].split(';')[0];
+            const byteString = atob(fileData.split(',')[1]);
+            const mimeString = fileData.split(',')[0].split(':')[1].split(';')[0] || 'application/octet-stream';
             const ab = new ArrayBuffer(byteString.length); 
             const ia = new Uint8Array(ab); 
             for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
@@ -218,7 +229,7 @@
             const formData = new FormData(); 
             formData.append('chat_id', currentId); 
             formData.append('document', blob, item.fileName); 
-            formData.append('caption', text); 
+            formData.append('caption', text.length > 1000 ? text.slice(0, 1000) + '…' : text); // 텔레그램 캡션 1024자 제한
             
             fetch(fileUrl, { method: 'POST', body: formData })
             .then(async res => { 
@@ -242,15 +253,33 @@
     }
 }
 
-        function openInputModal() { editId = null; attachedFileBase64 = null; attachedFileName = ""; document.getElementById('fileStatus').innerText = "선택된 파일 없음"; document.getElementById('inputModal').style.display = 'block'; document.getElementById('inputText').focus(); }
-        function closeInputModal() { document.getElementById('inputModal').style.display = 'none'; document.getElementById('inputText').value = ''; document.getElementById('smartTimeInput').value = ''; attachedFileBase64 = null; attachedFileName = ""; editId = null; }
+        function openInputModal() { editId = null; attachedFileBase64 = null; attachedFileName = ""; fileReadPromise = null; document.getElementById('memoFile').value = ""; document.getElementById('fileStatus').innerText = "선택된 파일 없음"; document.getElementById('inputModal').style.display = 'block'; document.getElementById('inputText').focus(); }
+        function closeInputModal() { document.getElementById('inputModal').style.display = 'none'; document.getElementById('inputText').value = ''; document.getElementById('smartTimeInput').value = ''; attachedFileBase64 = null; attachedFileName = ""; fileReadPromise = null; editId = null; document.getElementById('memoFile').value = ""; document.getElementById('fileStatus').innerText = "선택된 파일 없음"; }
         function toggleTimeInput(show) { document.getElementById('timeInputGroup').style.display = show ? 'block' : 'none'; }
-        function updateFileLabel() { const fileInput = document.getElementById('memoFile'); const file = fileInput.files[0]; if (!file) return; if (file.size > 4 * 1024 * 1024) { showToast("⚠️ 파일은 4MB 이하만 가능"); fileInput.value = ""; return; } attachedFileName = file.name; document.getElementById('fileStatus').innerText = file.name; const reader = new FileReader(); reader.onload = function(e) { attachedFileBase64 = e.target.result; }; reader.readAsDataURL(file); }
-        function startEdit(type, id) { const list = JSON.parse(localStorage.getItem(type) || '[]'); const item = list.find(i => i.id === id); if(!item) return; editId = id; document.getElementById('inputModal').style.display = 'block'; document.getElementById('inputText').value = item.text; if (item.fileName) { attachedFileName = item.fileName; attachedFileBase64 = item.fileData; document.getElementById('fileStatus').innerText = item.fileName + " (보관됨)"; } if(type === 'memos') { document.querySelector('input[name="dataType"][value="memo"]').checked = true; toggleTimeInput(false); } else { document.querySelector('input[name="dataType"][value="todo"]').checked = true; toggleTimeInput(true); } document.getElementById('inputText').focus(); }
+        // [수정] 파일 읽기가 끝날 때까지 기다릴 수 있도록 Promise로 관리 (읽기 전에 '등록'을 누르면 파일이 빠지던 문제)
+        function updateFileLabel() { const fileInput = document.getElementById('memoFile'); const file = fileInput.files[0]; if (!file) return; if (file.size > 20 * 1024 * 1024) { showToast("⚠️ 파일은 20MB 이하만 가능"); fileInput.value = ""; return; } attachedFileName = file.name; attachedFileBase64 = null; document.getElementById('fileStatus').innerText = "⏳ " + file.name; fileReadPromise = new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = function(e) { attachedFileBase64 = e.target.result; document.getElementById('fileStatus').innerText = file.name; resolve(); }; reader.onerror = function() { attachedFileName = ""; document.getElementById('fileStatus').innerText = "⚠️ 파일 읽기 실패"; reject(); }; reader.readAsDataURL(file); }); }
+        async function startEdit(type, id) { const list = JSON.parse(localStorage.getItem(type) || '[]'); const item = list.find(i => i.id === id); if(!item) return; editId = id; attachedFileName = ""; attachedFileBase64 = null; fileReadPromise = null; document.getElementById('memoFile').value = ""; document.getElementById('fileStatus').innerText = "선택된 파일 없음"; document.getElementById('inputModal').style.display = 'block'; document.getElementById('inputText').value = item.text; if (item.fileName) { attachedFileName = item.fileName; document.getElementById('fileStatus').innerText = item.fileName + " (보관됨)"; fileReadPromise = getItemFile(item).then(d => { attachedFileBase64 = d; }); } if(type === 'memos') { document.querySelector('input[name="dataType"][value="memo"]').checked = true; toggleTimeInput(false); } else { document.querySelector('input[name="dataType"][value="todo"]').checked = true; toggleTimeInput(true); } document.getElementById('inputText').focus(); }
         function deleteItem(type, id) { deleteTargetType = type; deleteTargetId = id; document.getElementById('deleteModal').style.display = 'block'; }
         function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; }
-        function executeDelete() { const list = JSON.parse(localStorage.getItem(deleteTargetType) || '[]'); const filtered = list.filter(i => i.id !== deleteTargetId); localStorage.setItem(deleteTargetType, JSON.stringify(filtered)); closeDeleteModal(); renderLists(); showToast('🗑️ 삭제 완료'); }
-        function saveData() { const type = document.querySelector('input[name="dataType"]:checked').value; const text = document.getElementById('inputText').value.trim(); if(!text) return; const now = new Date(); const timeStamp = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`; if(type === 'memo') { let memos = JSON.parse(localStorage.getItem('memos') || '[]'); if(editId) memos = memos.filter(m => m.id !== editId); memos.push({ id: Date.now(), text: text, date: timeStamp, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 }); localStorage.setItem('memos', JSON.stringify(memos)); } else { let todos = JSON.parse(localStorage.getItem('todos') || '[]'); if(editId) todos = todos.filter(t => t.id !== editId); todos.push({ id: Date.now(), text: text, time: timeStamp, fileName: attachedFileName, fileData: attachedFileBase64, sendCount: 0 }); localStorage.setItem('todos', JSON.stringify(todos)); } closeInputModal(); renderLists(); showToast('✅ 저장 완료'); }
+        function executeDelete() { const list = JSON.parse(localStorage.getItem(deleteTargetType) || '[]'); const filtered = list.filter(i => i.id !== deleteTargetId); localStorage.setItem(deleteTargetType, JSON.stringify(filtered)); idbDel(deleteTargetId); closeDeleteModal(); renderLists(); showToast('🗑️ 삭제 완료'); }
+        async function saveData() {
+            const type = document.querySelector('input[name="dataType"]:checked').value; const text = document.getElementById('inputText').value.trim(); if(!text) return;
+            // [수정] 파일 읽기가 끝나지 않았으면 기다림
+            if (fileReadPromise) { try { await fileReadPromise; } catch (e) { alert('❌ 파일을 읽지 못했습니다. 다시 첨부해 주세요.'); return; } }
+            const now = new Date(); const timeStamp = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            const newId = Date.now(); const hasFile = !!(attachedFileName && attachedFileBase64);
+            // [수정] 파일 본문은 IndexedDB에 저장하고, 메모에는 파일 이름만 기록
+            if (hasFile) { try { await idbPut(newId, attachedFileBase64); } catch (e) { alert('❌ 첨부파일 저장 실패: ' + e.message); return; } }
+            const key = type === 'memo' ? 'memos' : 'todos';
+            let list = JSON.parse(localStorage.getItem(key) || '[]'); let oldCount = 0;
+            if (editId) { const old = list.find(i => i.id === editId); if (old) oldCount = old.sendCount || 0; list = list.filter(i => i.id !== editId); }
+            const entry = { id: newId, text: text, fileName: hasFile ? attachedFileName : "", sendCount: oldCount };
+            if (type === 'memo') entry.date = timeStamp; else entry.time = timeStamp;
+            list.push(entry);
+            if (!safeSetItem(key, JSON.stringify(list))) { if (hasFile) idbDel(newId); return; }
+            if (editId) idbDel(editId);
+            closeInputModal(); renderLists(); showToast(hasFile ? '✅ 파일과 함께 저장 완료' : '✅ 저장 완료');
+        }
 
         function renderLists() {
             const memos = JSON.parse(localStorage.getItem('memos') || '[]'); memos.sort((a, b) => b.id - a.id);
@@ -263,8 +292,8 @@
         function filterItems() { const kw = document.getElementById('searchKeyword').value.toLowerCase(); document.querySelectorAll('ul li').forEach(li => { li.style.display = li.innerText.toLowerCase().includes(kw) ? 'flex' : 'none'; }); }
         function showToast(m) { const t = document.getElementById('toastNotification'); t.innerText = m; t.style.display = 'block'; setTimeout(() => t.style.display='none', 1500); }
         function updateSendCount(type, id) { const list = JSON.parse(localStorage.getItem(type) || '[]'); const updated = list.map(item => { if (item.id === id) { const newCount = (item.sendCount || 0) + 1; const badge = document.getElementById(`badge-${type}-${id}`); if (badge) { badge.innerText = newCount; badge.style.display = 'block'; } return { ...item, sendCount: newCount }; } return item; }); localStorage.setItem(type, JSON.stringify(updated)); }
-        function backupData() { const b = { memos: JSON.parse(localStorage.getItem('memos')||'[]'), todos: JSON.parse(localStorage.getItem('todos')||'[]') }; const blob = new Blob([JSON.stringify(b, null, 2)], { type: 'text/plain;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `백업.txt`; a.click(); }
-        function restoreData(i) { const f = i.files[0]; if (!f) return; const r = new FileReader(); r.onload = function(e) { const d = JSON.parse(e.target.result); localStorage.setItem('memos', JSON.stringify(d.memos)); localStorage.setItem('todos', JSON.stringify(d.todos)); renderLists(); showToast('복원 완료'); }; r.readAsText(f, 'utf-8'); }
+        async function backupData() { const b = { memos: JSON.parse(localStorage.getItem('memos')||'[]'), todos: JSON.parse(localStorage.getItem('todos')||'[]'), files: {} }; for (const it of [...b.memos, ...b.todos]) { if (it.fileName && !it.fileData) { const d = await idbGet(it.id); if (d) b.files[it.id] = d; } } const blob = new Blob([JSON.stringify(b, null, 2)], { type: 'text/plain;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `백업.txt`; a.click(); }
+        function restoreData(i) { const f = i.files[0]; if (!f) return; const r = new FileReader(); r.onload = async function(e) { try { const d = JSON.parse(e.target.result); const files = d.files || {}; for (const it of [...(d.memos||[]), ...(d.todos||[])]) { if (it.fileData) { files[it.id] = it.fileData; delete it.fileData; } } for (const k of Object.keys(files)) await idbPut(k, files[k]); safeSetItem('memos', JSON.stringify(d.memos||[])); safeSetItem('todos', JSON.stringify(d.todos||[])); renderLists(); showToast('복원 완료'); } catch (err) { alert('❌ 백업 파일을 읽지 못했습니다.'); } i.value = ''; }; r.readAsText(f, 'utf-8'); }
     </script>
 </body>
 </html>
